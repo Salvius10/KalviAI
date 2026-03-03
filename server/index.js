@@ -8,18 +8,24 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use("/api/auth",        require("./routes/auth.routes"));
-app.use("/api/courses",     require("./routes/course.routes"));
-app.use("/api/assessments", require("./routes/assessment.routes"));
-app.use("/api/submissions", require("./routes/submission.routes"));
-app.use("/api/performance", require("./routes/performance.routes"));
+app.use("/api/auth",           require("./routes/auth.routes"));
+app.use("/api/courses",        require("./routes/course.routes"));
+app.use("/api/assessments",    require("./routes/assessment.routes"));
+app.use("/api/submissions",    require("./routes/submission.routes"));
+app.use("/api/performance",    require("./routes/performance.routes"));
 app.use("/api/study-sessions", require("./routes/studySession.routes"));
-app.use("/api/ai",          require("./routes/ai.routes"));
+app.use("/api/ai",             require("./routes/ai.routes"));
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("💥 Global Error:", err);
+  res.status(500).json({ message: err.message });
+});
 
 // Health check
 app.get("/", (req, res) => res.json({ message: "EduAI API running ✅" }));
