@@ -2,10 +2,28 @@ const express = require("express");
 const router = express.Router();
 const { protect, restrictTo } = require("../middleware/auth.middleware");
 const Assessment = require("../models/Assessment.model");
+const Course = require("../models/Course.model");
 
+// GET assessments for a specific course
 router.get("/course/:courseId", protect, async (req, res) => {
   try {
-    const assessments = await Assessment.find({ course: req.params.courseId });
+    const assessments = await Assessment.find({
+      course: req.params.courseId,
+      isPublished: true,
+    });
+    res.json(assessments);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// GET all assessments for student (from all published courses)
+router.get("/student/all", protect, restrictTo("student"), async (req, res) => {
+  try {
+    const courses = await Course.find({ isPublished: true });
+    const courseIds = courses.map(c => c._id);
+    const assessments = await Assessment.find({
+      course: { $in: courseIds },
+      isPublished: true,
+    }).populate("course", "title");
     res.json(assessments);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

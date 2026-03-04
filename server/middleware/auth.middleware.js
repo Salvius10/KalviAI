@@ -8,6 +8,7 @@ const protect = (req, res, next) => {
   try {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("🔐 Decoded token:", decoded); // debug line
     req.user = decoded;
     next();
   } catch {
@@ -16,6 +17,7 @@ const protect = (req, res, next) => {
 };
 
 const restrictTo = (...roles) => (req, res, next) => {
+  console.log("👤 User role:", req.user.role, "| Required:", roles); // debug line
   if (!roles.includes(req.user.role)) {
     return res.status(403).json({ message: "Forbidden - Insufficient role" });
   }
