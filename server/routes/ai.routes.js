@@ -1,25 +1,37 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
+const {
+  tutor,
+  getChatHistory,
+  clearChatHistory,
+  generateAssessment,
+  generateFlashcards,
+  detectPlagiarism,
+} = require("../controllers/ai.controller");
 
-// ⚠️ AI HAS TO BE CREATED HERE — Assessment generation
-router.post("/generate-assessment", protect, restrictTo("teacher"), (req, res) => {
-  res.json({ message: "⚠️ AI Assessment Generator — to be implemented" });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
 });
 
+router.post("/generate-assessment", protect, restrictTo("teacher"), generateAssessment);
+
+
+router.get("/tutor/history", protect, restrictTo("student"), getChatHistory);
+
+
+router.delete("/tutor/history", protect, restrictTo("student"), clearChatHistory);
 // ⚠️ AI HAS TO BE CREATED HERE — AI Tutor (Socratic method)
-router.post("/tutor", protect, restrictTo("student"), (req, res) => {
-  res.json({ message: "⚠️ AI Tutor — to be implemented" });
-});
+router.post("/tutor", protect, restrictTo("student"), upload.single("document"), tutor);
 
 // ⚠️ AI HAS TO BE CREATED HERE — Flashcard generation
-router.post("/flashcards", protect, restrictTo("student"), (req, res) => {
-  res.json({ message: "⚠️ AI Flashcard Generator — to be implemented" });
-});
+router.post("/flashcards", protect, restrictTo("student"), generateFlashcards);
 
 // ⚠️ AI HAS TO BE CREATED HERE — Plagiarism detection
-router.post("/plagiarism", protect, restrictTo("teacher"), (req, res) => {
-  res.json({ message: "⚠️ Plagiarism Detector — to be implemented" });
-});
+router.post("/plagiarism", protect, restrictTo("teacher"), detectPlagiarism);
 
 module.exports = router;
