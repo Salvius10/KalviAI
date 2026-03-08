@@ -5,6 +5,8 @@
 .env.test.local
 .env.production.local
 .env.*.local
+!.env.example
+!.env*.example
 
 # Dependencies
 node_modules/
