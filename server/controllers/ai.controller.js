@@ -2,7 +2,7 @@ const path = require("path");
 const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth");
 const AITutor = require("../models/AITutor.model");
-
+const axios = require("axios");
 // Handle potential default export issue with pdf-parse
 const parsePdf = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
 
@@ -311,7 +311,19 @@ exports.clearChatHistory = async (req, res) => {
 };
 
 exports.generateAssessment = async (req, res) => {
-  res.json({ message: "⚠️ AI Assessment Generator — to be implemented" });
+  try {
+
+    const response = await axios.post(
+      "http://127.0.0.1:8000/quiz/generate",
+      req.body
+    );
+
+    res.json(response.data);
+
+  } catch (error) {
+    console.error("Python AI error:", error.message);
+    res.status(500).json({ message: "Assessment generation failed" });
+  }
 };
 
 exports.generateFlashcards = async (req, res) => {
