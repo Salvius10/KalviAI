@@ -2,25 +2,48 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../../lib/axios'
 import useAuthStore from '../../store/authStore'
+import ThemeToggle from '../../components/shared/ThemeToggle'
+
+const portals = [
+  { id: 'student', label: 'Student', color: 'bg-[#6fa8ff]' },
+  { id: 'teacher', label: 'Teacher', color: 'bg-[#c6b3ff]' },
+  { id: 'parent', label: 'Parent', color: 'bg-[#97e675]' },
+]
+
+const getDashboardPath = (role) => {
+  if (role === 'teacher') return '/teacher/dashboard'
+  if (role === 'parent') return '/parent/dashboard'
+  return '/student/dashboard'
+}
 
 export default function Login() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [portal, setPortal] = useState('student')
+  const [form, setForm] = useState({ email: '', rollNo: '', password: '' })
+  const [parentSetup, setParentSetup] = useState({ name: '', rollNo: '', password: '' })
   const [error, setError] = useState('')
+  const [parentSetupError, setParentSetupError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [creatingParent, setCreatingParent] = useState(false)
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const handleParentSetupChange = (e) => setParentSetup({ ...parentSetup, [e.target.name]: e.target.value })
+
+  const handlePortalChange = (nextPortal) => {
+    setPortal(nextPortal)
+    setError('')
+    setParentSetupError('')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const res = await api.post('/auth/login', form)
+      const res = await api.post('/auth/login', { ...form, portal })
       login(res.data.user, res.data.token)
-      if (res.data.user.role === 'teacher') navigate('/teacher/dashboard')
-      else navigate('/student/dashboard')
+      navigate(getDashboardPath(res.data.user.role))
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed')
     } finally {
@@ -28,92 +51,223 @@ export default function Login() {
     }
   }
 
+  const handleCreateParent = async (e) => {
+    e.preventDefault()
+    setParentSetupError('')
+    setCreatingParent(true)
+    try {
+      const res = await api.post('/auth/register-parent', parentSetup)
+      login(res.data.user, res.data.token)
+      navigate('/parent/dashboard')
+    } catch (err) {
+      setParentSetupError(err.response?.data?.message || 'Parent setup failed')
+    } finally {
+      setCreatingParent(false)
+    }
+  }
+
+  const activePortal = portals.find((item) => item.id === portal) || portals[0]
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
-      </div>
-
-      <div className="w-full max-w-md relative">
-        
-        {/* Logo / Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-500/30">
-            <span className="text-2xl">🎓</span>
+    <div className="theme-app min-h-screen retro-grid-bg px-4 py-6">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl items-center justify-center">
+        <div className="w-full space-y-6">
+          <div className="flex justify-end">
+            <ThemeToggle />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">KalviAI</h1>
-          <p className="text-slate-400 mt-1 text-sm">AI-Powered Learning Platform</p>
+          <section className="retro-shell overflow-hidden">
+            <div className="grid lg:grid-cols-[1.05fr,0.95fr]">
+              <div className="border-b-[3px] border-black bg-[#ffd84d] p-6 lg:border-b-0 lg:border-r-[3px]">
+                <div className="retro-chip bg-white">Retro access</div>
+                <h1 className="retro-title mt-5 text-5xl sm:text-6xl">KalviAI Login</h1>
+                <p className="mt-4 max-w-xl text-base font-medium text-black/75">
+                  Teacher, student, and parent access now live in one retro-styled entry screen.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <span className="retro-chip bg-white">Student: email + roll no + password</span>
+                  <span className="retro-chip bg-white">Teacher: email + password</span>
+                  <span className="retro-chip bg-white">Parent: roll no + password</span>
+                </div>
+              </div>
+
+              <div className="bg-[#fff8e8] p-6">
+                <div className="grid grid-cols-3 gap-3">
+                  {portals.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handlePortalChange(item.id)}
+                      className={`rounded-[18px] border-[3px] border-black px-4 py-3 text-sm font-black uppercase tracking-[0.12em] text-black transition-transform hover:-translate-y-0.5 ${
+                        portal === item.id
+                          ? `${item.color} shadow-[5px_5px_0_#111111]`
+                          : 'bg-white shadow-[3px_3px_0_#111111]'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-[24px] border-[3px] border-black bg-white p-5 shadow-[6px_6px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Selected portal</p>
+                  <h2 className="retro-title mt-3 text-3xl">{portal} sign in</h2>
+                  <p className="mt-2 text-sm font-medium text-black/70">
+                    {portal === 'student'
+                      ? 'Students must enter email, roll number, and password.'
+                      : portal === 'teacher'
+                      ? 'Teachers log in with email and password only.'
+                      : 'Parents log in with student roll number and parent password.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className={`grid gap-6 ${portal === 'parent' ? 'lg:grid-cols-[0.95fr,1.05fr]' : 'lg:grid-cols-1'}`}>
+            <section className="retro-panel p-6">
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div>
+                  <p className={`retro-chip ${activePortal.color}`}>Login form</p>
+                  <h2 className="retro-title mt-3 text-4xl">
+                    {portal === 'teacher' ? 'Teacher Access' : portal === 'parent' ? 'Parent Access' : 'Student Access'}
+                  </h2>
+                </div>
+                <Link to="/register" className="retro-button bg-white px-4 py-2">
+                  Register
+                </Link>
+              </div>
+
+              {error && (
+                <div className="mb-5 rounded-[18px] border-[3px] border-black bg-[#ffb3cb] px-4 py-3 shadow-[4px_4px_0_#111111]">
+                  <p className="font-bold text-black">{error}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {portal !== 'parent' && (
+                  <div>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Email address</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      placeholder={portal === 'teacher' ? 'teacher@example.com' : 'student@example.com'}
+                      required={portal !== 'parent'}
+                      className="retro-input"
+                    />
+                  </div>
+                )}
+
+                {(portal === 'student' || portal === 'parent') && (
+                  <div>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">
+                      {portal === 'student' ? 'Roll number' : 'Student roll number'}
+                    </label>
+                    <input
+                      type="text"
+                      name="rollNo"
+                      value={form.rollNo}
+                      onChange={handleChange}
+                      placeholder="KALVI-101"
+                      required
+                      className="retro-input uppercase"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">
+                    {portal === 'parent' ? 'Parent password' : 'Password'}
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={form.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    required
+                    className="retro-input"
+                  />
+                </div>
+
+                <button type="submit" disabled={loading} className={`retro-button w-full ${activePortal.color}`}>
+                  {loading ? 'Signing in...' : `Sign in as ${portal}`}
+                </button>
+              </form>
+
+              <p className="mt-5 text-sm font-medium text-black/70">
+                Teacher or student account needed?{' '}
+                <Link to="/register" className="font-black text-black underline">
+                  Create one here
+                </Link>
+              </p>
+            </section>
+
+            {portal === 'parent' && (
+              <section className="retro-panel p-6">
+                <div className="mb-5">
+                  <p className="retro-chip bg-[#97e675]">Parent account setup</p>
+                  <h2 className="retro-title mt-3 text-4xl">Create Parent Access</h2>
+                  <p className="mt-2 text-sm font-medium text-black/70">
+                    This setup is shown only for parents. Student and teacher login will not display it.
+                  </p>
+                </div>
+
+                {parentSetupError && (
+                  <div className="mb-5 rounded-[18px] border-[3px] border-black bg-[#ffb3cb] px-4 py-3 shadow-[4px_4px_0_#111111]">
+                    <p className="font-bold text-black">{parentSetupError}</p>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateParent} className="space-y-4">
+                  <div>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Parent name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={parentSetup.name}
+                      onChange={handleParentSetupChange}
+                      placeholder="Parent or guardian name"
+                      required
+                      className="retro-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Student roll number</label>
+                    <input
+                      type="text"
+                      name="rollNo"
+                      value={parentSetup.rollNo}
+                      onChange={handleParentSetupChange}
+                      placeholder="KALVI-101"
+                      required
+                      className="retro-input uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Create parent password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={parentSetup.password}
+                      onChange={handleParentSetupChange}
+                      placeholder="••••••••"
+                      required
+                      className="retro-input"
+                    />
+                  </div>
+
+                  <button type="submit" disabled={creatingParent} className="retro-button w-full bg-[#97e675]">
+                    {creatingParent ? 'Creating parent access...' : 'Create parent access'}
+                  </button>
+                </form>
+              </section>
+            )}
+          </div>
         </div>
-
-        {/* Card */}
-        <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold text-white mb-1">Welcome back</h2>
-          <p className="text-slate-400 text-sm mb-6">Sign in to your account to continue</p>
-
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3 mb-5">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-                required
-                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                required
-                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 text-sm transition-all duration-200 shadow-lg shadow-blue-500/20 mt-2"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                  </svg>
-                  Signing in...
-                </span>
-              ) : 'Sign In'}
-            </button>
-          </form>
-        </div>
-
-        <p className="text-center text-slate-500 text-sm mt-6">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
-            Create one
-          </Link>
-        </p>
       </div>
     </div>
   )

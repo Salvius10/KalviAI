@@ -37,6 +37,9 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve uploaded files statically
+app.use("/uploads", express.static("uploads"));
+
 // Routes
 app.use("/api/auth",           require("./routes/auth.routes"));
 app.use("/api/courses",        require("./routes/course.routes"));
@@ -44,6 +47,7 @@ app.use("/api/assessments",    require("./routes/assessment.routes"));
 app.use("/api/submissions",    require("./routes/submission.routes"));
 app.use("/api/performance",    require("./routes/performance.routes"));
 app.use("/api/study-sessions", require("./routes/studySession.routes"));
+app.use("/api/parents",        require("./routes/parent.routes"));
 app.use("/api/ai",             require("./routes/ai.routes"));
 
 // Global error handler

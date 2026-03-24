@@ -9,7 +9,7 @@ import {
 export default function TeacherPerformance() {
   const [courses, setCourses] = useState([])
   const [selectedCourse, setSelectedCourse] = useState('')
-  const [submissions, setSubmissions] = useState([])
+  const [performance, setPerformance] = useState(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -29,31 +29,30 @@ export default function TeacherPerformance() {
       setLoading(true)
       try {
         const res = await api.get(`/performance/course/${selectedCourse}`)
-        setSubmissions(res.data)
+        setPerformance(res.data)
       } catch (err) { console.error(err) } finally { setLoading(false) }
     }
     fetchSubmissions()
   }, [selectedCourse])
 
-  // Group by student
-  const studentMap = {}
-  submissions.forEach((sub) => {
-    const name = sub.student?.name || 'Unknown'
-    if (!studentMap[name]) studentMap[name] = { name, scores: [], total: 0, count: 0 }
-    studentMap[name].scores.push(sub.percentage)
-    studentMap[name].total += sub.percentage
-    studentMap[name].count += 1
-  })
-
-  const studentData = Object.values(studentMap).map((s) => ({
-    name: s.name,
-    average: Math.round(s.total / s.count),
-    attempts: s.count,
+  const submissions = performance?.submissions || []
+  const slowLearners = performance?.slowLearners || []
+  const studentData = (performance?.studentAnalytics || []).map((student) => ({
+    name: student.name,
+    average: Math.round(student.averageScore),
+    attempts: student.attempts,
+    bestScore: Math.round(student.bestScore),
   }))
 
-  const plagiarismCount = submissions.filter(s => s.plagiarismFlag).length
-  const passed = submissions.filter(s => s.percentage >= 70).length
-  const failed = submissions.filter(s => s.percentage < 70).length
+  const assessmentTrendData = (performance?.assessmentBreakdown || []).map((assessment) => ({
+    title: assessment.title,
+    averageScore: Math.round(assessment.averageScore),
+    passRate: Math.round(assessment.passRate),
+  }))
+
+  const plagiarismCount = performance?.overview?.plagiarismFlags || 0
+  const passed = performance?.overview?.passCount || 0
+  const failed = performance?.overview?.failCount || 0
 
   const pieData = [
     { name: 'Passed (≥70%)', value: passed, color: '#22c55e' },
@@ -61,9 +60,11 @@ export default function TeacherPerformance() {
   ]
 
   const stats = [
-    { label: 'Total Submissions', value: submissions.length,                         icon: '📝', color: 'bg-purple-500/10 border-purple-500/30 text-purple-400' },
-    { label: 'Average Score',     value: submissions.length ? `${Math.round(submissions.reduce((s, sub) => s + sub.percentage, 0) / submissions.length)}%` : '0%', icon: '🎯', color: 'bg-blue-500/10 border-blue-500/30 text-blue-400' },
+    { label: 'Total Submissions', value: performance?.overview?.totalSubmissions || 0, icon: '📝', color: 'bg-purple-500/10 border-purple-500/30 text-purple-400' },
+    { label: 'Average Score',     value: `${Math.round(performance?.overview?.averageScore || 0)}%`, icon: '🎯', color: 'bg-blue-500/10 border-blue-500/30 text-blue-400' },
+    { label: 'Active Students',   value: performance?.overview?.activeStudents || 0, icon: '👥', color: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' },
     { label: 'Passed',            value: passed,                                      icon: '✅', color: 'bg-green-500/10 border-green-500/30 text-green-400' },
+    { label: 'Slow Learners',     value: performance?.overview?.slowLearnerCount || 0, icon: '🧠', color: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300' },
     { label: 'Plagiarism Flags',  value: plagiarismCount,                             icon: '⚠️', color: 'bg-red-500/10 border-red-500/30 text-red-400' },
   ]
 
@@ -87,7 +88,7 @@ export default function TeacherPerformance() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 xl:grid-cols-6 gap-4">
           {stats.map((stat) => (
             <div key={stat.label} className={`border rounded-2xl p-5 ${stat.color}`}>
               <div className="text-2xl mb-2">{stat.icon}</div>
@@ -107,6 +108,62 @@ export default function TeacherPerformance() {
           </div>
         ) : (
           <>
+            <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <h2 className="text-white font-semibold">Early Identification of Slow Learners</h2>
+                  <p className="text-slate-400 text-sm mt-1">
+                    Based on average assessment marks. Students below 60% are surfaced for early teacher intervention.
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="text-xs px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+                    High risk: {performance?.overview?.highRiskCount || 0}
+                  </span>
+                  <span className="text-xs px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-300 border border-yellow-500/20">
+                    Watchlist: {(performance?.overview?.slowLearnerCount || 0) - (performance?.overview?.highRiskCount || 0)}
+                  </span>
+                </div>
+              </div>
+              {slowLearners.length === 0 ? (
+                <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
+                  No slow learners identified in this course from current marks.
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {slowLearners.map((student) => (
+                    <div key={student.studentId} className="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-white text-sm font-semibold">{student.name}</p>
+                          <p className="text-slate-400 text-xs mt-1">{student.rollNo || 'No roll no'} • {student.email}</p>
+                        </div>
+                        <span className={`text-[11px] px-2.5 py-1 rounded-full border ${
+                          student.learnerBand.status === 'high_risk'
+                            ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                            : 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20'
+                        }`}>
+                          {student.learnerBand.label}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex items-center gap-3 text-xs">
+                        <span className="rounded-full bg-slate-800 px-3 py-1 text-white">
+                          Avg {Math.round(student.averageScore)}%
+                        </span>
+                        <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
+                          Attempts {student.scoredAttempts}
+                        </span>
+                        <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
+                          Best {Math.round(student.bestScore)}%
+                        </span>
+                      </div>
+                      <p className="text-slate-400 text-xs mt-3">{student.learnerBand.note}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -155,9 +212,86 @@ export default function TeacherPerformance() {
               </div>
             </div>
 
+            <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
+              <h2 className="text-white font-semibold mb-4">Assessment Trends</h2>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={assessmentTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="title" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', color: '#fff' }} />
+                  <Line type="monotone" dataKey="averageScore" stroke="#60a5fa" strokeWidth={3} dot={{ r: 4 }} />
+                  <Line type="monotone" dataKey="passRate" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
             {/* Student Table */}
             <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-white font-semibold mb-4">Student Submissions</h2>
+              <h2 className="text-white font-semibold mb-4">Student Performance Summary</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-slate-400 text-xs border-b border-slate-700/50">
+                      <th className="text-left pb-3 font-medium">Student</th>
+                      <th className="text-left pb-3 font-medium">Roll No</th>
+                      <th className="text-left pb-3 font-medium">Attempts</th>
+                      <th className="text-left pb-3 font-medium">Average</th>
+                      <th className="text-left pb-3 font-medium">Best</th>
+                      <th className="text-left pb-3 font-medium">Learner Status</th>
+                      <th className="text-left pb-3 font-medium">Pass / Fail</th>
+                      <th className="text-left pb-3 font-medium">Last Submission</th>
+                      <th className="text-left pb-3 font-medium">Flags</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/30">
+                    {(performance?.studentAnalytics || []).map((student) => (
+                      <tr key={student.studentId} className="text-slate-300">
+                        <td className="py-3">
+                          <div>
+                            <p className="text-white text-xs font-medium">{student.name}</p>
+                            <p className="text-slate-500 text-xs">{student.email}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 text-xs text-slate-300">{student.rollNo || 'N/A'}</td>
+                        <td className="py-3 text-xs">{student.attempts}</td>
+                        <td className="py-3">
+                          <span className={`text-xs font-bold ${student.averageScore >= 70 ? 'text-green-400' : student.averageScore >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                            {Math.round(student.averageScore)}%
+                          </span>
+                        </td>
+                        <td className="py-3 text-xs text-white">{Math.round(student.bestScore)}%</td>
+                        <td className="py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            student.learnerBand?.status === 'high_risk'
+                              ? 'bg-red-500/10 text-red-400'
+                              : student.learnerBand?.status === 'watchlist'
+                              ? 'bg-yellow-500/10 text-yellow-300'
+                              : 'bg-green-500/10 text-green-400'
+                          }`}>
+                            {student.learnerBand?.label || 'On track'}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span className="text-xs text-slate-300">{student.passedCount} / {student.failedCount}</span>
+                        </td>
+                        <td className="py-3 text-xs text-slate-400">
+                          {student.lastSubmittedAt ? new Date(student.lastSubmittedAt).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${student.plagiarismFlags ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                            {student.plagiarismFlags ? `${student.plagiarismFlags} flagged` : 'Clean'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
+              <h2 className="text-white font-semibold mb-4">Recent Assessment Submissions</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -166,37 +300,18 @@ export default function TeacherPerformance() {
                       <th className="text-left pb-3 font-medium">Assessment</th>
                       <th className="text-left pb-3 font-medium">Score</th>
                       <th className="text-left pb-3 font-medium">Marks</th>
-                      <th className="text-left pb-3 font-medium">Status</th>
-                      <th className="text-left pb-3 font-medium">Plagiarism</th>
+                      <th className="text-left pb-3 font-medium">Submitted</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/30">
-                    {submissions.map((sub) => (
+                    {submissions.slice(0, 12).map((sub) => (
                       <tr key={sub._id} className="text-slate-300">
-                        <td className="py-3">
-                          <div>
-                            <p className="text-white text-xs font-medium">{sub.student?.name}</p>
-                            <p className="text-slate-500 text-xs">{sub.student?.email}</p>
-                          </div>
-                        </td>
+                        <td className="py-3 text-xs text-white">{sub.student?.name || 'Unknown'}</td>
                         <td className="py-3 text-xs">{sub.assessment?.title || 'N/A'}</td>
-                        <td className="py-3">
-                          <span className={`text-xs font-bold ${sub.percentage >= 70 ? 'text-green-400' : sub.percentage >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {Math.round(sub.percentage)}%
-                          </span>
-                        </td>
+                        <td className="py-3 text-xs">{Math.round(sub.percentage)}%</td>
                         <td className="py-3 text-xs">{sub.totalScore}/{sub.maxScore}</td>
-                        <td className="py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${sub.percentage >= 70 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                            {sub.percentage >= 70 ? 'Passed' : 'Failed'}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          {sub.plagiarismFlag ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">⚠️ Flagged</span>
-                          ) : (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">✅ Clean</span>
-                          )}
+                        <td className="py-3 text-xs text-slate-400">
+                          {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : 'N/A'}
                         </td>
                       </tr>
                     ))}

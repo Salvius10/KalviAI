@@ -86,38 +86,52 @@ export default function StudySessions() {
   return (
     <Layout>
       <div className="space-y-6">
-
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white">Study Tracker</h1>
-          <p className="text-slate-400 text-sm mt-1">Track your study sessions and stay consistent</p>
+        <div className="retro-shell overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[1.15fr,0.85fr]">
+            <div className="border-b-[3px] border-black bg-[#97e675] p-6 lg:border-b-0 lg:border-r-[3px]">
+              <div className="retro-chip bg-white">Study tracker</div>
+              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">Focus sessions should feel alive in light mode.</h1>
+              <p className="mt-4 max-w-2xl text-base font-medium text-black/75">Track start, stop, notes, and history with brighter cards and stronger text contrast.</p>
+            </div>
+            <div className="bg-[#fff8e8] p-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-[22px] border-[3px] border-black bg-[#6fa8ff] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Sessions</p>
+                  <p className="mt-3 text-3xl font-black text-black">{totalSessions}</p>
+                </div>
+                <div className="rounded-[22px] border-[3px] border-black bg-[#ffd84d] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Total time</p>
+                  <p className="mt-3 text-3xl font-black text-black">{formatDuration(totalMinutes)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (
-            <div key={stat.label} className={`border rounded-2xl p-5 ${stat.color}`}>
+            <div key={stat.label} className="rounded-[22px] border-[3px] border-black bg-[#fff8e8] p-5 shadow-[5px_5px_0_#111111]">
               <div className="text-2xl mb-2">{stat.icon}</div>
-              <div className="text-2xl font-bold text-white">{stat.value}</div>
-              <div className="text-sm mt-1 opacity-80">{stat.label}</div>
+              <div className="text-2xl font-bold text-black">{stat.value}</div>
+              <div className="text-sm mt-1 text-black/70">{stat.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Timer Card */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4">
+        <div className="retro-panel p-6">
+          <h2 className="retro-title text-3xl mb-4">
             {activeSession ? '⏱️ Session in Progress' : 'Start a Study Session'}
           </h2>
 
           {!activeSession ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">Select Course</label>
+                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Select Course</label>
                 <select
                   value={selectedCourse}
                   onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="retro-input"
                 >
                   {courses.map(c => <option key={c._id} value={c._id}>{c.title}</option>)}
                 </select>
@@ -125,7 +139,7 @@ export default function StudySessions() {
               <button
                 onClick={handleStart}
                 disabled={!selectedCourse}
-                className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-xl transition-all text-sm"
+                className="retro-button bg-[#97e675] disabled:opacity-50"
               >
                 ▶ Start Session
               </button>
@@ -134,11 +148,11 @@ export default function StudySessions() {
             <div className="space-y-4">
               {/* Timer Display */}
               <div className="text-center py-6">
-                <div className="text-5xl font-bold font-mono text-white mb-2">
+                <div className="text-5xl font-black font-mono text-black mb-2">
                   {formatTime(elapsed)}
                 </div>
-                <p className="text-slate-400 text-sm">
-                  Studying: <span className="text-blue-400 font-medium">
+                <p className="text-black/70 text-sm">
+                  Studying: <span className="text-black font-medium">
                     {courses.find(c => c._id === selectedCourse)?.title || 'Unknown'}
                   </span>
                 </p>
@@ -146,21 +160,21 @@ export default function StudySessions() {
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Session Notes <span className="text-slate-500">(optional)</span>
+                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">
+                  Session Notes <span className="text-black/50">(optional)</span>
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="What did you study today?"
                   rows={2}
-                  className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
+                  className="retro-input resize-none"
                 />
               </div>
 
               <button
                 onClick={handleStop}
-                className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 rounded-xl transition-all text-sm"
+                className="retro-button w-full bg-[#ff8db3]"
               >
                 ⏹ Stop & Save Session
               </button>
@@ -168,39 +182,38 @@ export default function StudySessions() {
           )}
         </div>
 
-        {/* Session Logs */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4">Session History</h2>
+        <div className="retro-panel p-6">
+          <h2 className="retro-title text-3xl mb-4">Session History</h2>
           {loading ? (
-            <p className="text-slate-400 text-sm">Loading...</p>
+            <p className="text-black/70 text-sm">Loading...</p>
           ) : sessions.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-4xl mb-3">📖</p>
-              <p className="text-white font-semibold">No sessions yet</p>
-              <p className="text-slate-400 text-sm mt-1">Start your first study session above!</p>
+              <p className="font-semibold text-black">No sessions yet</p>
+              <p className="text-sm mt-1 text-black/70">Start your first study session above!</p>
             </div>
           ) : (
             <div className="space-y-5">
               {Object.entries(grouped).map(([date, daySessions]) => (
                 <div key={date}>
-                  <p className="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wider">{date}</p>
+                  <p className="text-xs text-black/60 font-medium mb-2 uppercase tracking-wider">{date}</p>
                   <div className="space-y-2">
                     {daySessions.map((session) => (
-                      <div key={session._id} className="flex items-center justify-between bg-slate-700/30 rounded-xl px-4 py-3">
+                      <div key={session._id} className="flex items-center justify-between rounded-[20px] border-[3px] border-black bg-[#fff8e8] px-4 py-3 shadow-[4px_4px_0_#111111]">
                         <div>
-                          <p className="text-white text-sm font-medium">
+                          <p className="text-black text-sm font-medium">
                             {session.course?.title || 'Unknown Course'}
                           </p>
                           {session.notes && (
-                            <p className="text-slate-400 text-xs mt-0.5">📝 {session.notes}</p>
+                            <p className="text-black/70 text-xs mt-0.5">📝 {session.notes}</p>
                           )}
-                          <p className="text-slate-500 text-xs mt-0.5">
+                          <p className="text-black/60 text-xs mt-0.5">
                             {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {session.endTime && ` → ${new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                           </p>
                         </div>
                         <div className="text-right">
-                          <span className="text-blue-400 font-semibold text-sm">
+                          <span className="text-black font-semibold text-sm">
                             {session.duration ? formatDuration(session.duration) : 'In progress'}
                           </span>
                         </div>

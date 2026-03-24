@@ -5,6 +5,7 @@ const materialSchema = new mongoose.Schema({
   type:     { type: String, enum: ["pdf", "video", "link", "text"], required: true },
   url:      { type: String },
   content:  { type: String },
+  fileUrl:  { type: String }, // URL to uploaded file (if any)
 }, { timestamps: true });
 
 const courseSchema = new mongoose.Schema({

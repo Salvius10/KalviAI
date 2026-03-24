@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import Layout from '../../components/shared/Layout'
 import api from '../../lib/axios'
+import { API_BASE_URL } from '../../lib/utils'
+
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '')
 
 const emptyForm = {
   title: '',
   courseId: '',
   topic: '',
   difficulty: 'medium',
+  assessmentType: 'quiz',
+  instructions: '',
+  dueDate: '',
   duration: 60,
   questions: [],
 }
@@ -19,6 +25,12 @@ const emptyQuestion = {
   marks: 1,
 }
 
+const getAssessmentType = (assessment) => {
+  if (assessment?.assessmentType === 'pdf_assignment') return 'pdf_assignment'
+  if ((assessment?.instructions || '').trim() && (!assessment?.questions || assessment.questions.length === 0)) return 'pdf_assignment'
+  return 'quiz'
+}
+
 export default function TeacherAssessments() {
   const [assessments, setAssessments] = useState([])
   const [courses, setCourses] = useState([])
@@ -28,15 +40,30 @@ export default function TeacherAssessments() {
   const [questions, setQuestions] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState('list')
   const [viewSubmissions, setViewSubmissions] = useState(null)
   const [submissions, setSubmissions] = useState([])
+  const [expandedSubmissionId, setExpandedSubmissionId] = useState(null)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiMaterialFile, setAiMaterialFile] = useState(null)
+  const [aiMaterialText, setAiMaterialText] = useState('')
+  const [aiQuestionCount, setAiQuestionCount] = useState(10)
+
+  const sanitizeQuestions = (inputQuestions = []) =>
+    inputQuestions
+      .map((q) => ({
+        ...q,
+        questionText: q.questionText?.trim() || '',
+        correctAnswer: q.correctAnswer?.trim() || '',
+        options: Array.isArray(q.options) ? q.options.map((o) => o?.trim() || '') : [],
+        marks: Number(q.marks) > 0 ? Number(q.marks) : 1,
+      }))
+      .filter((q) => q.questionText)
 
   const fetchData = async () => {
     try {
       const courseRes = await api.get('/courses')
       setCourses(courseRes.data)
-      // fetch assessments for all courses
+      // Fetch teacher-visible assessments across all their courses.
       const all = []
       for (const c of courseRes.data) {
         const res = await api.get(`/assessments/course/${c._id}`)
@@ -55,6 +82,9 @@ export default function TeacherAssessments() {
   const openCreate = () => {
     setForm(emptyForm)
     setQuestions([{ ...emptyQuestion, options: ['', '', '', ''] }])
+    setAiMaterialFile(null)
+    setAiMaterialText('')
+    setAiQuestionCount(10)
     setError('')
     setShowModal(true)
   }
@@ -82,7 +112,10 @@ export default function TeacherAssessments() {
   const handleSave = async () => {
     if (!form.title.trim()) return setError('Title is required')
     if (!form.courseId) return setError('Please select a course')
-    if (questions.length === 0) return setError('Add at least one question')
+    const normalizedQuestions = sanitizeQuestions(questions)
+    if (form.assessmentType === 'quiz' && normalizedQuestions.length === 0) return setError('Add at least one valid question')
+    if (form.assessmentType === 'pdf_assignment' && !form.instructions.trim()) return setError('Add assignment instructions')
+    if (form.assessmentType === 'pdf_assignment' && !form.dueDate) return setError('Add a submission deadline')
     setSaving(true)
     try {
       await api.post('/assessments', {
@@ -90,8 +123,11 @@ export default function TeacherAssessments() {
         course: form.courseId,
         topic: form.topic,
         difficulty: form.difficulty,
-        duration: form.duration,
-        questions,
+        assessmentType: form.assessmentType,
+        instructions: form.instructions.trim(),
+        dueDate: form.dueDate || undefined,
+        duration: form.assessmentType === 'quiz' ? (Number(form.duration) > 0 ? Number(form.duration) : 60) : 0,
+        questions: form.assessmentType === 'quiz' ? normalizedQuestions : [],
         isPublished: true,
       })
       setShowModal(false)
@@ -100,6 +136,59 @@ export default function TeacherAssessments() {
       setError(err.response?.data?.message || 'Failed to save')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleGenerateWithAI = async () => {
+    if (!aiMaterialFile && !aiMaterialText.trim()) {
+      return setError('Upload study material or paste study text to generate quiz')
+    }
+
+    setAiGenerating(true)
+    setError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('questionCount', String(aiQuestionCount))
+      formData.append('difficulty', form.difficulty)
+      formData.append('topic', form.topic)
+      if (aiMaterialFile) formData.append('material', aiMaterialFile)
+      if (aiMaterialText.trim()) formData.append('materialText', aiMaterialText.trim())
+
+      console.log('📤 Sending AI generation request:', {
+        questionCount: aiQuestionCount,
+        difficulty: form.difficulty,
+        topic: form.topic,
+        hasFile: !!aiMaterialFile,
+        fileName: aiMaterialFile?.name,
+        fileSize: aiMaterialFile?.size,
+        materialTextLength: aiMaterialText.trim().length,
+      })
+
+      const res = await api.post('/ai/generate-quiz-from-material', formData)
+
+      const generated = sanitizeQuestions(res.data?.questions || [])
+      if (!generated.length) {
+        setError('AI did not generate valid questions. Please try different material.')
+        return
+      }
+
+      setQuestions(generated)
+      if (!form.title.trim()) {
+        const selectedCourse = courses.find((course) => course._id === form.courseId)
+        setForm((prev) => ({
+          ...prev,
+          title: prev.topic?.trim()
+            ? `${prev.topic.trim()} Quiz`
+            : `${selectedCourse?.title || 'AI Generated'} Quiz`,
+        }))
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to generate quiz with AI'
+      console.error('🔴 Quiz generation failed:', { error: err, message: errorMsg, status: err.response?.status })
+      setError(errorMsg)
+    } finally {
+      setAiGenerating(false)
     }
   }
 
@@ -113,6 +202,7 @@ export default function TeacherAssessments() {
 
   const handleViewSubmissions = async (assessment) => {
     setViewSubmissions(assessment)
+    setExpandedSubmissionId(null)
     try {
       const res = await api.get(`/submissions/assessment/${assessment._id}`)
       setSubmissions(res.data)
@@ -156,22 +246,37 @@ export default function TeacherAssessments() {
           </div>
         ) : (
           <div className="space-y-3">
-            {assessments.map((assessment) => (
+            {assessments.map((assessment) => {
+              const assessmentType = getAssessmentType(assessment)
+              return (
               <div key={assessment._id} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-white font-semibold text-sm">{assessment.title}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${assessmentType === 'pdf_assignment' ? 'text-blue-300 bg-blue-500/10' : 'text-purple-300 bg-purple-500/10'}`}>
+                        {assessmentType === 'pdf_assignment' ? 'PDF Assignment' : 'Quiz'}
+                      </span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${difficultyColor[assessment.difficulty]}`}>
                         {assessment.difficulty}
                       </span>
                     </div>
                     <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-400">
                       <span>📚 {assessment.courseTitle}</span>
-                      <span>❓ {assessment.questions?.length || 0} questions</span>
-                      <span>⏱️ {assessment.duration} mins</span>
+                      {assessmentType === 'quiz' ? (
+                        <>
+                          <span>❓ {assessment.questions?.length || 0} questions</span>
+                          <span>⏱️ {assessment.duration} mins</span>
+                        </>
+                      ) : (
+                        <span>📄 Student PDF upload</span>
+                      )}
+                      {assessment.dueDate && <span>📅 Due {new Date(assessment.dueDate).toLocaleString()}</span>}
                       {assessment.topic && <span>🏷️ {assessment.topic}</span>}
                     </div>
+                    {assessmentType === 'pdf_assignment' && assessment.instructions && (
+                      <p className="text-slate-300 text-xs mt-2 line-clamp-2">{assessment.instructions}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
@@ -189,7 +294,7 @@ export default function TeacherAssessments() {
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
@@ -207,20 +312,76 @@ export default function TeacherAssessments() {
             ) : (
               <div className="space-y-3">
                 {submissions.map((sub) => (
-                  <div key={sub._id} className="bg-slate-700/30 rounded-xl px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-white text-sm font-medium">{sub.student?.name}</p>
-                      <p className="text-slate-400 text-xs">{sub.student?.email}</p>
+                  <div key={sub._id} className="bg-slate-700/30 rounded-xl px-4 py-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-white text-sm font-medium">{sub.student?.name}</p>
+                        <p className="text-slate-400 text-xs">{sub.student?.email}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-bold ${sub.percentage >= 70 ? 'text-green-400' : sub.percentage >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {sub.submissionType === 'pdf_assignment' ? 'PDF' : `${Math.round(sub.percentage)}%`}
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          {sub.submissionType === 'pdf_assignment'
+                            ? `${sub.fileName || 'Uploaded file'}`
+                            : `${sub.totalScore}/${sub.maxScore} marks`}
+                        </p>
+                        <p className={`text-xs mt-0.5 ${sub.plagiarismFlag ? 'text-red-400' : 'text-slate-400'}`}>
+                          Similarity: {Math.round(sub.plagiarismScore || 0)}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-bold ${sub.percentage >= 70 ? 'text-green-400' : sub.percentage >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                        {Math.round(sub.percentage)}%
-                      </p>
-                      <p className="text-slate-400 text-xs">{sub.totalScore}/{sub.maxScore} marks</p>
-                      {sub.plagiarismFlag && (
-                        <p className="text-red-400 text-xs mt-0.5">⚠️ Plagiarism detected</p>
-                      )}
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setExpandedSubmissionId((prev) => (prev === sub._id ? null : sub._id))}
+                        className="text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-3 py-1.5 rounded-lg transition-all"
+                      >
+                        {expandedSubmissionId === sub._id
+                          ? 'Hide Details'
+                          : sub.submissionType === 'pdf_assignment'
+                          ? 'View Submission'
+                          : 'View Answers'}
+                      </button>
                     </div>
+
+                    {expandedSubmissionId === sub._id && (
+                      <div className="space-y-2 pt-2 border-t border-slate-600/40">
+                        {sub.submissionType === 'pdf_assignment' ? (
+                          <div className="bg-slate-800/40 rounded-lg p-3 space-y-2">
+                            <p className="text-xs text-slate-300">File: {sub.fileName || 'Uploaded PDF'}</p>
+                            {sub.fileUrl && (
+                              <a
+                                href={`${API_ORIGIN}${sub.fileUrl}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 px-3 py-1.5 rounded-lg transition-all"
+                              >
+                                Open PDF
+                              </a>
+                            )}
+                            <p className={`text-xs ${sub.plagiarismFlag ? 'text-red-300' : 'text-slate-300'}`}>
+                              {sub.plagiarismReport || 'No plagiarism report available.'}
+                            </p>
+                          </div>
+                        ) : (
+                          (sub.reviewedAnswers || []).map((ans, idx) => (
+                            <div key={`${sub._id}-${idx}`} className="bg-slate-800/40 rounded-lg p-3">
+                              <p className="text-xs text-slate-300 font-medium">Q{idx + 1}. {ans.questionText}</p>
+                              {ans.questionType === 'mcq' && ans.options?.length > 0 && (
+                                <p className="text-xs text-slate-400 mt-1">Options: {ans.options.join(' | ')}</p>
+                              )}
+                              <p className="text-xs text-blue-300 mt-1">Student answer: {ans.studentAnswer || 'No answer'}</p>
+                              <p className="text-xs text-green-300">Correct answer: {ans.correctAnswer || 'N/A'}</p>
+                              <p className="text-xs text-slate-400 mt-1">
+                                Marks: {ans.marksAwarded}/{ans.marks} {ans.isCorrect ? '• Correct' : '• Incorrect'}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -245,8 +406,9 @@ export default function TeacherAssessments() {
             )}
 
             {/* AI Placeholder Notice */}
-            <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs rounded-lg px-4 py-3 mb-4">
-              ⚠️ AI HAS TO BE CREATED HERE — Auto-generate questions using AI by providing topic + difficulty
+            <div className="bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs rounded-lg px-4 py-3 mb-4 space-y-2">
+              <p className="font-medium">Generate Quiz With AI (Groq)</p>
+              <p>Upload study material from PDF, Word, PowerPoint, or pasted notes and generate 5 to 10 MCQ questions using your selected topic and difficulty.</p>
             </div>
 
             <div className="space-y-4">
@@ -263,6 +425,17 @@ export default function TeacherAssessments() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Assessment Type</label>
+                  <select
+                    value={form.assessmentType}
+                    onChange={(e) => setForm({ ...form, assessmentType: e.target.value })}
+                    className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  >
+                    <option value="quiz">Quiz</option>
+                    <option value="pdf_assignment">PDF Assignment</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Course</label>
                   <select
                     value={form.courseId}
@@ -273,7 +446,7 @@ export default function TeacherAssessments() {
                     {courses.map(c => <option key={c._id} value={c._id}>{c.title}</option>)}
                   </select>
                 </div>
-                <div>
+                <div className={form.assessmentType === 'quiz' ? '' : 'col-span-2'}>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">Difficulty</label>
                   <select
                     value={form.difficulty}
@@ -301,92 +474,160 @@ export default function TeacherAssessments() {
                     type="number"
                     value={form.duration}
                     onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                    disabled={form.assessmentType !== 'quiz'}
                     className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   />
                 </div>
+                <div className={form.assessmentType === 'pdf_assignment' ? 'col-span-2' : ''}>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Deadline</label>
+                  <input
+                    type="datetime-local"
+                    value={form.dueDate}
+                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                    className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+                {form.assessmentType === 'pdf_assignment' && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Assignment Instructions</label>
+                    <textarea
+                      value={form.instructions}
+                      onChange={(e) => setForm({ ...form, instructions: e.target.value })}
+                      rows={4}
+                      placeholder="Describe the work students need to complete and submit as PDF."
+                      className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Questions */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium text-slate-300">Questions ({questions.length})</label>
-                  <button
-                    onClick={addQuestion}
-                    className="text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 px-3 py-1.5 rounded-lg transition-all"
-                  >
-                    + Add Question
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {questions.map((q, qi) => (
-                    <div key={qi} className="bg-slate-700/30 border border-slate-600/30 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-400 font-medium">Question {qi + 1}</span>
-                        <button onClick={() => removeQuestion(qi)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+              {form.assessmentType === 'quiz' && (
+                <>
+                  <div className="bg-slate-900/40 border border-slate-700/50 rounded-xl p-4 space-y-3">
+                    <h3 className="text-sm font-semibold text-white">AI Quiz Generator</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1.5">Upload material (PDF, DOC, DOCX, PPT, PPTX, TXT)</label>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                          onChange={(e) => setAiMaterialFile(e.target.files?.[0] || null)}
+                          className="w-full bg-slate-700/50 border border-slate-600/50 text-slate-300 rounded-lg px-3 py-2 text-xs"
+                        />
                       </div>
-
-                      <input
-                        type="text"
-                        value={q.questionText}
-                        onChange={(e) => updateQuestion(qi, 'questionText', e.target.value)}
-                        placeholder="Enter your question..."
-                        className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1.5">Question count (5-10)</label>
+                        <input
+                          type="number"
+                          min={5}
+                          max={10}
+                          value={aiQuestionCount}
+                          onChange={(e) => setAiQuestionCount(Math.max(5, Math.min(10, Number(e.target.value) || 10)))}
+                          className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-lg px-3 py-2 text-sm focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1.5">Or paste study material text</label>
+                      <textarea
+                        value={aiMaterialText}
+                        onChange={(e) => setAiMaterialText(e.target.value)}
+                        rows={4}
+                        placeholder="Paste notes or study text here..."
+                        className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-xs focus:outline-none resize-none"
                       />
+                    </div>
+                    <button
+                      onClick={handleGenerateWithAI}
+                      disabled={aiGenerating}
+                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all"
+                    >
+                      {aiGenerating ? 'Generating Quiz...' : 'Generate Questions With AI'}
+                    </button>
+                  </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-xs text-slate-400 mb-1 block">Type</label>
-                          <select
-                            value={q.type}
-                            onChange={(e) => updateQuestion(qi, 'type', e.target.value)}
-                            className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none"
-                          >
-                            <option value="mcq">MCQ</option>
-                            <option value="short_answer">Short Answer</option>
-                            <option value="descriptive">Descriptive</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 mb-1 block">Marks</label>
-                          <input
-                            type="number"
-                            value={q.marks}
-                            onChange={(e) => updateQuestion(qi, 'marks', parseInt(e.target.value))}
-                            min={1}
-                            className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 mb-1 block">Answer</label>
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-medium text-slate-300">Questions ({questions.length})</label>
+                      <button
+                        onClick={addQuestion}
+                        className="text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 px-3 py-1.5 rounded-lg transition-all"
+                      >
+                        + Add Question
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {questions.map((q, qi) => (
+                        <div key={qi} className="bg-slate-700/30 border border-slate-600/30 rounded-xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-400 font-medium">Question {qi + 1}</span>
+                            <button onClick={() => removeQuestion(qi)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                          </div>
+
                           <input
                             type="text"
-                            value={q.correctAnswer}
-                            onChange={(e) => updateQuestion(qi, 'correctAnswer', e.target.value)}
-                            placeholder="Correct answer"
-                            className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                            value={q.questionText}
+                            onChange={(e) => updateQuestion(qi, 'questionText', e.target.value)}
+                            placeholder="Enter your question..."
+                            className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                           />
-                        </div>
-                      </div>
 
-                      {q.type === 'mcq' && (
-                        <div className="grid grid-cols-2 gap-2">
-                          {q.options.map((opt, oi) => (
-                            <input
-                              key={oi}
-                              type="text"
-                              value={opt}
-                              onChange={(e) => updateOption(qi, oi, e.target.value)}
-                              placeholder={`Option ${oi + 1}`}
-                              className="bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-                            />
-                          ))}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-xs text-slate-400 mb-1 block">Type</label>
+                              <select
+                                value={q.type}
+                                onChange={(e) => updateQuestion(qi, 'type', e.target.value)}
+                                className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                              >
+                                <option value="mcq">MCQ</option>
+                                <option value="short_answer">Short Answer</option>
+                                <option value="descriptive">Descriptive</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-slate-400 mb-1 block">Marks</label>
+                              <input
+                                type="number"
+                                value={q.marks}
+                                onChange={(e) => updateQuestion(qi, 'marks', parseInt(e.target.value))}
+                                min={1}
+                                className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-slate-400 mb-1 block">Answer</label>
+                              <input
+                                type="text"
+                                value={q.correctAnswer}
+                                onChange={(e) => updateQuestion(qi, 'correctAnswer', e.target.value)}
+                                placeholder="Correct answer"
+                                className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {q.type === 'mcq' && (
+                            <div className="grid grid-cols-2 gap-2">
+                              {q.options.map((opt, oi) => (
+                                <input
+                                  key={oi}
+                                  type="text"
+                                  value={opt}
+                                  onChange={(e) => updateOption(qi, oi, e.target.value)}
+                                  placeholder={`Option ${oi + 1}`}
+                                  className="bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-xs focus:outline-none"
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">

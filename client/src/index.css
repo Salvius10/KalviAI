@@ -1,3 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --retro-cream: #fdf6df;
+    --retro-paper: #fff8e8;
+    --retro-ink: #111111;
+    --retro-blue: #6fa8ff;
+    --retro-yellow: #ffd84d;
+    --retro-pink: #ff8db3;
+    --retro-green: #97e675;
+    --retro-orange: #ff9b54;
+  }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--retro-cream);
+    color: var(--retro-ink);
+  }
+
+  body.dark-mode {
+    --retro-cream: #141414;
+    --retro-paper: #1f1f1f;
+    --retro-ink: #f6f0de;
+    --retro-blue: #5e8fff;
+    --retro-yellow: #f6c93a;
+    --retro-pink: #ff7aa5;
+    --retro-green: #7fda5c;
+    --retro-orange: #ff9b54;
+  }
+}
+
+@layer components {
+  .theme-app {
+    background: var(--retro-cream);
+    color: var(--retro-ink);
+  }
+
+  .retro-shell {
+    @apply rounded-[28px] border-[3px] shadow-[8px_8px_0_#111111];
+    border-color: var(--retro-ink);
+    background: var(--retro-paper);
+    color: var(--retro-ink);
+  }
+
+  .retro-panel {
+    @apply rounded-[24px] border-[3px] shadow-[6px_6px_0_#111111];
+    border-color: var(--retro-ink);
+    background: var(--retro-paper);
+    color: var(--retro-ink);
+  }
+
+  .retro-chip {
+    @apply inline-flex items-center gap-2 rounded-full border-[3px] px-3 py-1 text-xs font-bold uppercase tracking-[0.18em];
+    border-color: var(--retro-ink);
+    color: var(--retro-ink);
+  }
+
+  .retro-title {
+    @apply font-black uppercase tracking-[-0.04em];
+    color: var(--retro-ink);
+  }
+
+  .retro-grid-bg {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--retro-ink) 10%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--retro-ink) 10%, transparent) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .retro-input {
+    @apply w-full rounded-[18px] border-[3px] px-4 py-3 text-sm outline-none transition-transform focus:-translate-y-0.5;
+    border-color: var(--retro-ink);
+    background: color-mix(in srgb, var(--retro-paper) 88%, white 12%);
+    color: var(--retro-ink);
+    box-shadow: 4px 4px 0 #111111;
+  }
+
+  .retro-input::placeholder {
+    color: color-mix(in srgb, var(--retro-ink) 55%, transparent);
+  }
+
+  .retro-button {
+    @apply inline-flex items-center justify-center rounded-[18px] border-[3px] px-4 py-3 text-sm font-bold uppercase tracking-[0.12em] transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60;
+    border-color: var(--retro-ink);
+    color: var(--retro-ink);
+    box-shadow: 5px 5px 0 #111111;
+  }
+
+  .retro-mono {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}

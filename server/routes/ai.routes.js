@@ -7,6 +7,7 @@ const {
   getChatHistory,
   clearChatHistory,
   generateAssessment,
+  generateQuizFromMaterial,
   generateFlashcards,
   detectPlagiarism,
 } = require("../controllers/ai.controller");
@@ -19,6 +20,7 @@ const upload = multer({
 });
 
 router.post("/generate-assessment", protect, restrictTo("teacher"), generateAssessment);
+router.post("/generate-quiz-from-material", protect, restrictTo("teacher"), upload.single("material"), generateQuizFromMaterial);
 
 
 router.get("/tutor/history", protect, restrictTo("student"), getChatHistory);

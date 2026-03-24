@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import Layout from '../../components/shared/Layout'
 import api from '../../lib/axios'
 
-const emptyForm = { title: '', description: '', isPublished: false }
+const emptyMaterial = { title: '', type: 'text', url: '', content: '', file: null, fileName: '', fileUrl: '' }
+const emptyForm = { title: '', description: '', isPublished: false, materials: [] }
 
 export default function TeacherCourses() {
   const [courses, setCourses] = useState([])
@@ -15,7 +16,8 @@ export default function TeacherCourses() {
   const [showStudentModal, setShowStudentModal] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState(null)
   const [studentEmail, setStudentEmail] = useState('')
-  const [allUsers, setAllUsers] = useState([])
+  const [assigningStudent, setAssigningStudent] = useState(false)
+  const [studentError, setStudentError] = useState('')
 
   const fetchCourses = async () => {
     try {
@@ -39,24 +41,131 @@ export default function TeacherCourses() {
 
   const openEdit = (course) => {
     setEditingCourse(course)
-    setForm({ title: course.title, description: course.description, isPublished: course.isPublished })
+    setForm({
+      title: course.title,
+      description: course.description,
+      isPublished: course.isPublished,
+      materials: Array.isArray(course.materials)
+        ? course.materials.map((m) => ({
+            title: m.title || '',
+            type: m.type || 'text',
+            url: m.url || '',
+            content: m.content || '',
+            fileUrl: m.fileUrl || '',
+            fileName: m.fileName || (m.fileUrl ? m.fileUrl.split('/').pop() : ''),
+            file: null,
+          }))
+        : [],
+    })
     setError('')
     setShowModal(true)
   }
 
+  const addMaterial = () => {
+    setForm((prev) => ({ ...prev, materials: [...(prev.materials || []), { ...emptyMaterial }] }))
+  }
+
+  const removeMaterial = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      materials: (prev.materials || []).filter((_, i) => i !== index),
+    }))
+  }
+
+  const updateMaterial = (index, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      materials: (prev.materials || []).map((material, i) =>
+        i === index ? { ...material, [field]: value } : material
+      ),
+    }))
+  }
+
+  const handleMaterialFileChange = (index, file) => {
+    setForm((prev) => ({
+      ...prev,
+      materials: (prev.materials || []).map((material, i) =>
+        i === index
+          ? {
+              ...material,
+              file,
+              fileName: file?.name || '',
+              // Auto-fill title from filename if teacher hasn't entered one yet.
+              title:
+                !material.title?.trim() && file?.name
+                  ? file.name.replace(/\.[^/.]+$/, '')
+                  : material.title,
+            }
+          : material
+      ),
+    }))
+  }
+
   const handleSave = async () => {
     if (!form.title.trim()) return setError('Title is required')
+    
     setSaving(true)
     try {
+      // Build materials with file handling
+      const formData = new FormData()
+      
+      // Add course basic info
+      formData.append('title', form.title)
+      formData.append('description', form.description)
+      formData.append('isPublished', form.isPublished)
+      
+      // Add materials
+      const materialsMetadata = [];
+      (form.materials || []).forEach((material, index) => {
+        const derivedTitle =
+          material.title?.trim() ||
+          material.fileName?.trim()?.replace(/\.[^/.]+$/, '') ||
+          ''
+
+        const hasAnyContent = Boolean(
+          derivedTitle ||
+          material.url?.trim() ||
+          material.content?.trim() ||
+          material.file
+        )
+
+        if (!hasAnyContent) return
+        
+        const materialData = {
+          title: derivedTitle || `Material ${index + 1}`,
+          type: material.type || 'text',
+          url: material.url?.trim() || '',
+          content: material.content?.trim() || '',
+          fileName: material.fileName || '',
+          fileUrl: material.fileUrl || '',
+        }
+        
+        // If file exists, add it to FormData
+        if (material.file) {
+          formData.append(`material_${index}_file`, material.file)
+        }
+        
+        materialsMetadata.push(materialData)
+      })
+      
+      formData.append('materialsMetadata', JSON.stringify(materialsMetadata))
+      
       if (editingCourse) {
-        await api.put(`/courses/${editingCourse._id}`, form)
+        await api.put(`/courses/${editingCourse._id}`, formData)
       } else {
-        await api.post('/courses', form)
+        await api.post('/courses', formData)
       }
       setShowModal(false)
       fetchCourses()
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save')
+      const serverMessage = err.response?.data?.message
+      const fallback = err.message || 'Failed to save'
+      setError(serverMessage || fallback)
+      console.error('Course save failed:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      })
     } finally {
       setSaving(false)
     }
@@ -74,7 +183,7 @@ export default function TeacherCourses() {
 
   const handleTogglePublish = async (course) => {
     try {
-      await api.put(`/courses/${course._id}`, { ...course, isPublished: !course.isPublished })
+      await api.put(`/courses/${course._id}`, { isPublished: !course.isPublished })
       fetchCourses()
     } catch (err) {
       console.error(err)
@@ -84,18 +193,29 @@ export default function TeacherCourses() {
   const openStudentModal = (course) => {
     setSelectedCourse(course)
     setStudentEmail('')
+    setStudentError('')
     setShowStudentModal(true)
   }
 
   const handleAddStudent = async () => {
-    if (!studentEmail.trim()) return
+    if (!studentEmail.trim()) {
+      setStudentError('Student email is required')
+      return
+    }
+
+    setStudentError('')
+    setAssigningStudent(true)
     try {
-      // Find user by email then add to course
-      const res = await api.get(`/courses/${selectedCourse._id}`)
-      alert('Student adding feature requires student to enroll themselves via the student portal.')
+      await api.post(`/courses/${selectedCourse._id}/students`, {
+        email: studentEmail.trim(),
+      })
       setShowStudentModal(false)
+      fetchCourses()
     } catch (err) {
-      console.error(err)
+      const message = err.response?.data?.message || 'Failed to assign student'
+      setStudentError(message)
+    } finally {
+      setAssigningStudent(false)
     }
   }
 
@@ -169,6 +289,12 @@ export default function TeacherCourses() {
                     {course.isPublished ? '📤 Unpublish' : '✅ Publish'}
                   </button>
                   <button
+                    onClick={() => openStudentModal(course)}
+                    className="flex-1 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 py-2 rounded-lg transition-all"
+                  >
+                    👤 Assign
+                  </button>
+                  <button
                     onClick={() => handleDelete(course._id)}
                     className="flex-1 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg transition-all"
                   >
@@ -230,6 +356,101 @@ export default function TeacherCourses() {
                   Publish immediately
                 </label>
               </div>
+
+              <div className="border-t border-slate-700/50 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-300">Course Materials</label>
+                  <button
+                    type="button"
+                    onClick={addMaterial}
+                    className="text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-1.5 rounded-lg"
+                  >
+                    + Add Material
+                  </button>
+                </div>
+
+                {(form.materials || []).length === 0 ? (
+                  <p className="text-xs text-slate-500">No materials added yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {(form.materials || []).map((material, index) => (
+                      <div key={index} className="bg-slate-700/30 border border-slate-600/30 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-slate-300 font-medium">Material {index + 1}</p>
+                          <button
+                            type="button"
+                            onClick={() => removeMaterial(index)}
+                            className="text-xs text-red-400 hover:text-red-300"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          value={material.title}
+                          onChange={(e) => updateMaterial(index, 'title', e.target.value)}
+                          placeholder="Material title"
+                          className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-xs focus:outline-none"
+                        />
+
+                        <select
+                          value={material.type}
+                          onChange={(e) => updateMaterial(index, 'type', e.target.value)}
+                          className="w-full bg-slate-700/50 border border-slate-600/50 text-white rounded-lg px-3 py-2 text-xs focus:outline-none"
+                        >
+                          <option value="text">Text</option>
+                          <option value="link">Link</option>
+                          <option value="video">Video</option>
+                          <option value="pdf">PDF</option>
+                        </select>
+
+                        {material.type === 'pdf' ? (
+                          <div className="space-y-2">
+                            {material.fileName ? (
+                              <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2">
+                                <span className="text-xs text-green-300">✓ {material.fileName}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMaterialFileChange(index, null)}
+                                  className="text-xs text-green-400 hover:text-green-300"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="block">
+                                <input
+                                  type="file"
+                                  accept=".pdf,.doc,.docx,.txt"
+                                  onChange={(e) => handleMaterialFileChange(index, e.target.files?.[0] || null)}
+                                  className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-xs cursor-pointer file:mr-2 file:bg-purple-600 file:text-white file:px-3 file:py-1 file:rounded-md file:border-0 file:text-xs file:cursor-pointer hover:file:bg-purple-500"
+                                />
+                              </label>
+                            )}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={material.url}
+                            onChange={(e) => updateMaterial(index, 'url', e.target.value)}
+                            placeholder="URL (required for links, videos, PDFs)"
+                            className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-xs focus:outline-none"
+                          />
+                        )}
+
+                        <textarea
+                          value={material.content}
+                          onChange={(e) => updateMaterial(index, 'content', e.target.value)}
+                          rows={2}
+                          placeholder="Notes/content (optional)"
+                          className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-xs focus:outline-none resize-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -246,6 +467,63 @@ export default function TeacherCourses() {
               >
                 {saving ? 'Saving...' : editingCourse ? 'Save Changes' : 'Create Course'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStudentModal && selectedCourse && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-white font-bold text-lg">Assign Student</h2>
+                <p className="text-slate-400 text-sm mt-1">{selectedCourse.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStudentModal(false)}
+                className="text-slate-400 hover:text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {studentError && (
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3 mb-4">
+                {studentError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Student Email</label>
+                <input
+                  type="email"
+                  value={studentEmail}
+                  onChange={(e) => setStudentEmail(e.target.value)}
+                  placeholder="student@example.com"
+                  className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowStudentModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-sm text-slate-300 bg-slate-700/60 hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddStudent}
+                  disabled={assigningStudent}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {assigningStudent ? 'Assigning...' : 'Assign Student'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

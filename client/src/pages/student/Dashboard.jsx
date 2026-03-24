@@ -1,28 +1,41 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import Layout from '../../components/shared/Layout'
 import api from '../../lib/axios'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import useAuthStore from '../../store/authStore'
+
+const quickLinks = [
+  { label: 'AI Tutor', path: '/student/ai-tutor', note: 'Ask for guided hints', color: 'bg-[#6fa8ff]' },
+  { label: 'Flashcards', path: '/student/flashcards', note: 'Revise with quick cards', color: 'bg-[#ff8db3]' },
+  { label: 'Study Tracker', path: '/student/study-sessions', note: 'Track focus hours', color: 'bg-[#97e675]' },
+  { label: 'Assessments', path: '/student/assessments', note: 'Open pending work', color: 'bg-[#ffd84d]' },
+]
 
 export default function StudentDashboard() {
   const { user } = useAuthStore()
+  const [attendance, setAttendance] = useState({ present: 0, absent: 0 })
   const [performance, setPerformance] = useState(null)
   const [courses, setCourses] = useState([])
+  const [assessments, setAssessments] = useState([])
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [perfRes, courseRes, sessionRes] = await Promise.all([
+        const [perfRes, courseRes, sessionRes, assessmentRes, meRes] = await Promise.all([
           api.get('/performance/me'),
           api.get('/courses'),
           api.get('/study-sessions/my'),
+          api.get('/assessments/student/all'),
+          api.get('/auth/me'),
         ])
         setPerformance(perfRes.data)
         setCourses(courseRes.data)
         setSessions(sessionRes.data)
+        setAssessments(assessmentRes.data)
+        setAttendance(meRes.data?.attendance || { present: 0, absent: 0 })
       } catch (err) {
         console.error(err)
       } finally {
@@ -32,148 +45,194 @@ export default function StudentDashboard() {
     fetchData()
   }, [])
 
-  const stats = [
-    { label: 'Enrolled Courses',  value: courses.length,                                icon: '📚', color: 'blue'   },
-    { label: 'Assessments Taken', value: performance?.totalAttempted || 0,              icon: '📝', color: 'purple' },
-    { label: 'Average Score',     value: `${Math.round(performance?.averageScore || 0)}%`, icon: '🎯', color: 'green'  },
-    { label: 'Study Sessions',    value: sessions.length,                               icon: '⏱️', color: 'yellow' },
-  ]
-
   const chartData = performance?.submissions?.slice(-7).map((sub, i) => ({
-    name: `#${i + 1}`,
+    name: `T${i + 1}`,
     score: Math.round(sub.percentage || 0),
   })) || []
-
-  const colorMap = {
-    blue:   'bg-blue-500/10 border-blue-500/30 text-blue-400',
-    purple: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
-    green:  'bg-green-500/10 border-green-500/30 text-green-400',
-    yellow: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
-  }
-
-  const quickLinks = [
-    { label: 'AI Tutor',      path: '/student/ai-tutor',       icon: '🤖', desc: 'Get help from AI'       },
-    { label: 'Flashcards',    path: '/student/flashcards',     icon: '🃏', desc: 'Quick revision'         },
-    { label: 'Study Tracker', path: '/student/study-sessions', icon: '⏱️', desc: 'Track your study time' },
-    { label: 'Assessments',   path: '/student/assessments',    icon: '📝', desc: 'Take your assessments' },
+  const stats = [
+    { label: 'Courses', value: courses.length, accent: 'bg-[#6fa8ff]' },
+    { label: 'Assessments', value: assessments.length, accent: 'bg-[#ffd84d]' },
+    { label: 'Average Score', value: `${Math.round(performance?.averageScore || 0)}%`, accent: 'bg-[#ff8db3]' },
+    { label: 'Study Sessions', value: sessions.length, accent: 'bg-[#97e675]' },
   ]
 
   return (
     <Layout>
       <div className="space-y-6">
-
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white">
-            Welcome back, {user?.name?.split(' ')[0]} 👋
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">Here's your learning overview</p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className={`border rounded-2xl p-5 ${colorMap[stat.color]}`}
-            >
-              <div className="text-2xl mb-2">{stat.icon}</div>
-              <div className="text-2xl font-bold text-white">{stat.value}</div>
-              <div className="text-sm mt-1 opacity-80">{stat.label}</div>
+        <section className="retro-shell overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[1.3fr,0.7fr]">
+            <div className="border-b-[3px] border-black bg-[#ffd84d] p-6 lg:border-b-0 lg:border-r-[3px]">
+              <div className="retro-chip bg-white">Student dashboard</div>
+              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">
+                {user?.name?.split(' ')[0]}, keep the streak loud.
+              </h1>
+              <p className="mt-4 max-w-2xl text-base font-medium text-black/75">
+                Your workbench for courses, scores, focus sessions, and fast jumps into study tools.
+              </p>
             </div>
-          ))}
-        </div>
-
-        {/* Performance Chart */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4">Recent Assessment Scores</h2>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '12px',
-                    color: '#fff',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: '#3b82f6', r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-40 flex items-center justify-center text-slate-500 text-sm">
-              No assessments taken yet. Start one to see your progress!
-            </div>
-          )}
-        </div>
-
-        {/* Quick Access */}
-        <div>
-          <h2 className="text-white font-semibold mb-3">Quick Access</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {quickLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className="bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/40 rounded-2xl p-4 transition-all hover:bg-slate-700/50 block"
-              >
-                <div>
-                  <div className="text-2xl mb-2">{link.icon}</div>
-                  <p className="text-white text-sm font-medium">{link.label}</p>
-                  <p className="text-slate-500 text-xs mt-0.5">{link.desc}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Enrolled Courses */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4">Enrolled Courses</h2>
-          {loading ? (
-            <div className="text-slate-400 text-sm">Loading...</div>
-          ) : courses.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-slate-500 text-sm">You're not enrolled in any courses yet.</p>
-              <Link
-                to="/student/courses"
-                className="text-blue-400 text-sm hover:underline mt-1 inline-block"
-              >
-                Browse courses →
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {courses.map((course) => (
-                <div
-                  key={course._id}
-                  className="flex items-center justify-between bg-slate-700/30 rounded-xl px-4 py-3"
-                >
-                  <div>
-                    <p className="text-white text-sm font-medium">{course.title}</p>
-                    <p className="text-slate-400 text-xs mt-0.5">
-                      by {course.teacher?.name}
-                    </p>
+            <div className="bg-[#fff8e8] p-6">
+              <div className="grid grid-cols-2 gap-4">
+                {stats.map((stat) => (
+                  <div key={stat.label} className={`rounded-[22px] border-[3px] border-black p-4 shadow-[5px_5px_0_#111111] ${stat.accent}`}>
+                    <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">{stat.label}</p>
+                    <p className="mt-3 text-3xl font-black text-black">{stat.value}</p>
                   </div>
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 font-medium">
-                    Enrolled
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        </section>
 
+        <section className="grid gap-6 xl:grid-cols-[1.35fr,0.65fr]">
+          <div className="retro-panel p-6">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="retro-chip bg-[#d9e9ff]">Progress tape</p>
+                <h2 className="retro-title mt-3 text-3xl">Recent Scores</h2>
+              </div>
+              <span className="retro-chip bg-[#ffefab]">Last 7 attempts</span>
+            </div>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={chartData} margin={{ top: 10, right: 16, left: -12, bottom: 0 }}>
+                  <CartesianGrid stroke="#111111" strokeDasharray="5 5" />
+                  <XAxis dataKey="name" stroke="#111111" tick={{ fill: '#111111', fontSize: 12, fontWeight: 700 }} />
+                  <YAxis stroke="#111111" domain={[0, 100]} tick={{ fill: '#111111', fontSize: 12, fontWeight: 700 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff8e8',
+                      border: '3px solid #111111',
+                      borderRadius: '18px',
+                      color: '#111111',
+                      boxShadow: '5px 5px 0 #111111',
+                    }}
+                  />
+                  <Line type="monotone" dataKey="score" stroke="#111111" strokeWidth={4} dot={{ fill: '#ff8db3', stroke: '#111111', strokeWidth: 3, r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="rounded-[22px] border-[3px] border-dashed border-black bg-[#fff0e4] px-6 py-16 text-center">
+                <p className="text-lg font-bold text-black">No scores yet.</p>
+                <p className="mt-2 text-sm font-medium text-black/70">Take an assessment to start the chart.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div className="retro-panel p-6">
+              <p className="retro-chip bg-[#97e675]">Quick links</p>
+              <div className="mt-4 grid gap-4">
+                {quickLinks.map((link) => (
+                  <Link key={link.path} to={link.path} className={`block rounded-[22px] border-[3px] border-black p-4 text-black shadow-[5px_5px_0_#111111] transition-transform hover:-translate-y-1 ${link.color}`}>
+                    <p className="text-lg font-black uppercase">{link.label}</p>
+                    <p className="mt-1 text-sm font-medium text-black/75">{link.note}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="retro-panel bg-[#111111] p-6 text-white shadow-[6px_6px_0_#ff8db3]">
+              <p className="retro-mono text-xs uppercase tracking-[0.2em] text-white/70">Status</p>
+              <p className="mt-3 text-3xl font-black">{loading ? 'Loading data...' : 'Ready to study'}</p>
+              <p className="mt-2 text-sm font-medium text-white/75">
+                {loading ? 'Pulling your courses and performance.' : `${courses.length} active courses and ${assessments.length} assigned assessments.`}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-2">
+          <div className="retro-panel p-6">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div>
+                <p className="retro-chip bg-[#97e675]">Attendance</p>
+                <h2 className="retro-title mt-3 text-3xl">Presence Summary</h2>
+              </div>
+              <span className="retro-chip bg-white">Updated by teacher</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-[22px] border-[3px] border-black bg-[#97e675] p-4 shadow-[5px_5px_0_#111111]">
+                <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Present</p>
+                <p className="mt-3 text-3xl font-black text-black">{attendance.present || 0}</p>
+              </div>
+              <div className="rounded-[22px] border-[3px] border-black bg-[#ff8db3] p-4 shadow-[5px_5px_0_#111111]">
+                <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Absent</p>
+                <p className="mt-3 text-3xl font-black text-black">{attendance.absent || 0}</p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm font-medium text-black/70">
+              Your teacher updates this record. Parents can see the same attendance status in their dashboard.
+            </p>
+          </div>
+
+          <div className="retro-panel p-6">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div>
+                <p className="retro-chip bg-[#d9e9ff]">Courses</p>
+                <h2 className="retro-title mt-3 text-3xl">Enrolled Courses</h2>
+              </div>
+              <Link to="/student/courses" className="retro-button bg-[#6fa8ff] px-4 py-2">
+                Open all
+              </Link>
+            </div>
+            {loading ? (
+              <p className="text-sm font-medium text-black/70">Loading courses...</p>
+            ) : courses.length === 0 ? (
+              <div className="rounded-[22px] border-[3px] border-dashed border-black bg-[#fff0e4] px-6 py-10 text-center">
+                <p className="text-lg font-bold text-black">No courses assigned.</p>
+                <p className="mt-2 text-sm font-medium text-black/70">Your teacher needs to add you first.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {courses.map((course, index) => (
+                  <div key={course._id} className={`rounded-[22px] border-[3px] border-black px-4 py-4 shadow-[5px_5px_0_#111111] ${index % 2 === 0 ? 'bg-[#fff8e8]' : 'bg-[#d9e9ff]'}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-lg font-black text-black">{course.title}</p>
+                        <p className="mt-1 text-sm font-medium text-black/70">Teacher: {course.teacher?.name}</p>
+                      </div>
+                      <span className="retro-chip bg-white">Assigned</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="retro-panel p-6">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div>
+                <p className="retro-chip bg-[#ffefab]">Assessments</p>
+                <h2 className="retro-title mt-3 text-3xl">Upcoming Work</h2>
+              </div>
+              <Link to="/student/assessments" className="retro-button bg-[#ffd84d] px-4 py-2">
+                View all
+              </Link>
+            </div>
+            {loading ? (
+              <p className="text-sm font-medium text-black/70">Loading assessments...</p>
+            ) : assessments.length === 0 ? (
+              <div className="rounded-[22px] border-[3px] border-dashed border-black bg-[#e8ffd8] px-6 py-10 text-center">
+                <p className="text-lg font-bold text-black">Nothing pending.</p>
+                <p className="mt-2 text-sm font-medium text-black/70">You are clear for now.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {assessments.slice(0, 4).map((assessment, index) => (
+                  <div key={assessment._id} className={`rounded-[22px] border-[3px] border-black px-4 py-4 shadow-[5px_5px_0_#111111] ${index % 2 === 0 ? 'bg-[#ff8db3]' : 'bg-[#fff8e8]'}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-lg font-black text-black">{assessment.title}</p>
+                        <p className="mt-1 text-sm font-medium text-black/70">{assessment.course?.title || 'Assigned course'}</p>
+                      </div>
+                      <span className="retro-chip bg-white">{assessment.difficulty || 'medium'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </Layout>
   )

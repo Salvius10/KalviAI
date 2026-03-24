@@ -12,6 +12,8 @@ const assessmentSchema = new mongoose.Schema({
   title:       { type: String, required: true },
   course:      { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
   teacher:     { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  assessmentType: { type: String, enum: ["quiz", "pdf_assignment"], default: "quiz" },
+  instructions: { type: String, default: "" },
   questions:   [questionSchema],
   duration:    { type: Number, default: 60 },  // minutes
   dueDate:     { type: Date },

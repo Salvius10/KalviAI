@@ -47,9 +47,14 @@ coverage/
 *.tmp
 *.temp
 .cache/
+*.pyc
+__pycache__/
 
 # OS files
 Thumbs.db
+
+# App-generated uploads
+server/uploads/
 
 # IDE
 *.code-workspace

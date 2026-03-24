@@ -55,78 +55,90 @@ export default function StudentPerformance() {
   return (
     <Layout>
       <div className="space-y-6">
-
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white">My Performance</h1>
-          <p className="text-slate-400 text-sm mt-1">Track your learning progress over time</p>
+        <div className="retro-shell overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[1.15fr,0.85fr]">
+            <div className="border-b-[3px] border-black bg-[#ff8db3] p-6 lg:border-b-0 lg:border-r-[3px]">
+              <div className="retro-chip bg-white">Student performance</div>
+              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">Your scores should feel readable, not faded.</h1>
+              <p className="mt-4 max-w-2xl text-base font-medium text-black/75">Bright charts, clear score cards, and history that works better in light mode.</p>
+            </div>
+            <div className="bg-[#fff8e8] p-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-[22px] border-[3px] border-black bg-[#6fa8ff] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Attempts</p>
+                  <p className="mt-3 text-3xl font-black text-black">{submissions.length}</p>
+                </div>
+                <div className="rounded-[22px] border-[3px] border-black bg-[#ffd84d] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Average</p>
+                  <p className="mt-3 text-3xl font-black text-black">{avg}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (
-            <div key={stat.label} className={`border rounded-2xl p-5 ${stat.color}`}>
+            <div key={stat.label} className="rounded-[22px] border-[3px] border-black bg-[#fff8e8] p-5 shadow-[5px_5px_0_#111111]">
               <div className="text-2xl mb-2">{stat.icon}</div>
-              <div className="text-2xl font-bold text-white">{stat.value}</div>
-              <div className="text-sm mt-1 opacity-80">{stat.label}</div>
+              <div className="text-2xl font-bold text-black">{stat.value}</div>
+              <div className="text-sm mt-1 text-black/70">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {submissions.length === 0 ? (
-          <div className="text-center py-16 bg-slate-800/60 border border-slate-700/50 rounded-2xl">
+          <div className="retro-panel text-center py-16">
             <p className="text-4xl mb-3">📊</p>
-            <p className="text-white font-semibold">No data yet</p>
-            <p className="text-slate-400 text-sm mt-1">Take some assessments to see your performance here</p>
+            <p className="font-semibold text-black">No data yet</p>
+            <p className="text-sm mt-1 text-black/70">Take some assessments to see your performance here</p>
           </div>
         ) : (
           <>
-            {/* Score Over Time */}
-            <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-white font-semibold mb-4">Score Over Time</h2>
+            <div className="retro-panel p-6">
+              <h2 className="retro-title text-3xl mb-4">Score Over Time</h2>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={lineData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                  <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 12 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', color: '#fff' }} />
+                  <CartesianGrid strokeDasharray="5 5" stroke="#111111" />
+                  <XAxis dataKey="name" stroke="#111111" tick={{ fontSize: 12, fill: '#111111', fontWeight: 700 }} />
+                  <YAxis stroke="#111111" domain={[0, 100]} tick={{ fontSize: 12, fill: '#111111', fontWeight: 700 }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#fff8e8', border: '3px solid #111111', borderRadius: '18px', color: '#111111', boxShadow: '5px 5px 0 #111111' }} />
                   <Line type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Topic Performance */}
             {topicData.length > 0 && (
-              <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-                <h2 className="text-white font-semibold mb-4">Performance by Topic</h2>
+              <div className="retro-panel p-6">
+                <h2 className="retro-title text-3xl mb-4">Performance by Topic</h2>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={topicData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="topic" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                    <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 12 }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', color: '#fff' }} />
+                    <CartesianGrid strokeDasharray="5 5" stroke="#111111" />
+                    <XAxis dataKey="topic" stroke="#111111" tick={{ fontSize: 12, fill: '#111111', fontWeight: 700 }} />
+                    <YAxis stroke="#111111" domain={[0, 100]} tick={{ fontSize: 12, fill: '#111111', fontWeight: 700 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#fff8e8', border: '3px solid #111111', borderRadius: '18px', color: '#111111', boxShadow: '5px 5px 0 #111111' }} />
                     <Bar dataKey="average" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
 
-            {/* Submissions History */}
-            <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-white font-semibold mb-4">Submission History</h2>
+            <div className="retro-panel p-6">
+              <h2 className="retro-title text-3xl mb-4">Submission History</h2>
               <div className="space-y-3">
                 {submissions.map((sub, i) => (
-                  <div key={sub._id} className="flex items-center justify-between bg-slate-700/30 rounded-xl px-4 py-3">
+                  <div key={sub._id} className="flex items-center justify-between rounded-[20px] border-[3px] border-black bg-[#fff8e8] px-4 py-3 shadow-[4px_4px_0_#111111]">
                     <div>
-                      <p className="text-white text-sm font-medium">
+                      <p className="text-black text-sm font-medium">
                         {sub.assessment?.title || `Assessment #${i + 1}`}
                       </p>
                       <div className="flex items-center gap-3 mt-0.5">
                         {sub.assessment?.topic && (
-                          <span className="text-slate-400 text-xs">🏷️ {sub.assessment.topic}</span>
+                          <span className="text-black/70 text-xs">🏷️ {sub.assessment.topic}</span>
                         )}
                         {sub.assessment?.difficulty && (
-                          <span className="text-slate-400 text-xs capitalize">📊 {sub.assessment.difficulty}</span>
+                          <span className="text-black/70 text-xs capitalize">📊 {sub.assessment.difficulty}</span>
                         )}
                       </div>
                     </div>
@@ -134,7 +146,7 @@ export default function StudentPerformance() {
                       <p className={`text-sm font-bold ${sub.percentage >= 70 ? 'text-green-400' : sub.percentage >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {Math.round(sub.percentage)}%
                       </p>
-                      <p className="text-slate-400 text-xs">{sub.totalScore}/{sub.maxScore} marks</p>
+                      <p className="text-black/70 text-xs">{sub.totalScore}/{sub.maxScore} marks</p>
                     </div>
                   </div>
                 ))}
