@@ -49,6 +49,10 @@ app.use("/api/performance",    require("./routes/performance.routes"));
 app.use("/api/study-sessions", require("./routes/studySession.routes"));
 app.use("/api/parents",        require("./routes/parent.routes"));
 app.use("/api/ai",             require("./routes/ai.routes"));
+const learningPathRoutes = require("./routes/learningPath.route");
+const analyticsRoutes    = require("./routes/analytics.route");
+app.use("/api/learning-path", learningPathRoutes);
+app.use("/api/analytics",     analyticsRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

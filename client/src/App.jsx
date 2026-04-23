@@ -23,6 +23,8 @@ import Flashcards from './pages/student/Flashcards'
 import StudySessions from './pages/student/StudySessions'
 import ParentDashboard from './pages/parent/Dashboard'
 import WorkspacePage from './pages/shared/Workspace'
+import LearningPath      from './pages/student/LearningPath'
+import ProgressAnalytics from './pages/student/ProgressAnalytics'
 
 const getDashboardPath = (role) => {
   if (role === 'teacher') return '/teacher/dashboard'
@@ -125,6 +127,8 @@ export default function App() {
       <Route path="/student/flashcards" element={<ProtectedRoute allowedRole="student"><Flashcards /></ProtectedRoute>} />
       <Route path="/student/study-sessions" element={<ProtectedRoute allowedRole="student"><StudySessions /></ProtectedRoute>} />
       <Route path="/student/workspace" element={<ProtectedRoute allowedRole="student"><WorkspacePage /></ProtectedRoute>} />
+      <Route path="/student/learning-path" element={<ProtectedRoute allowedRole="student"><LearningPath /></ProtectedRoute>} />
+      <Route path="/student/analytics"     element={<ProtectedRoute allowedRole="student"><ProgressAnalytics /></ProtectedRoute>} />
 
       {/* Parent Routes */}
       <Route path="/parent/dashboard" element={<ProtectedRoute allowedRole="parent"><ParentDashboard /></ProtectedRoute>} />
