@@ -7,7 +7,7 @@ const router  = express.Router();
 // Then look inside it to see what the export is called (protect, verifyToken, etc.)
 // and change BOTH the require path AND the name below to match.
 // ─────────────────────────────────────────────────────────────────────────────
-const { protect } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/auth.middleware");
 
 const {
   getLearningPath,

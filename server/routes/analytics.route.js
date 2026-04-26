@@ -4,7 +4,7 @@ const router  = express.Router();
 // ─── IMPORTANT ───────────────────────────────────────────────────────────────
 // Same as learningPath.route.js — change this to match your auth middleware.
 // ─────────────────────────────────────────────────────────────────────────────
-const { protect } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/auth.middleware");
 
 const { getMyAnalytics, getAIInsight } = require("../controllers/analyticsController");
 

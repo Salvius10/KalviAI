@@ -1,11 +1,12 @@
-const OpenAI          = require("openai");
+const Groq            = require("groq-sdk");
 const LearningPath    = require("../models/LearningPath.model");
 const StudentProgress = require("../models/StudentProgress.model");
 const Course          = require("../models/Course.model");
 const Assessment      = require("../models/Assessment.model");
 const Submission      = require("../models/Submission.model");
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const MODEL = "llama-3.3-70b-versatile";
 
 // ─── Build the prompt sent to GPT-4o ─────────────────────────────────────────
 function buildPrompt({ goal, courses, submissionSummary, weakTopics, strongTopics }) {
@@ -158,8 +159,8 @@ const getLearningPath = async (req, res) => {
     // Generate a new path with GPT-4o
     const context    = await buildUserContext(userId, path?.goal);
     const prompt     = buildPrompt(context);
-    const completion = await openai.chat.completions.create({
-      model:      "gpt-4o",
+    const completion = await groq.chat.completions.create({
+      model:      MODEL,
       max_tokens: 1500,
       messages:   [{ role: "user", content: prompt }],
     });

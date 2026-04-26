@@ -1,9 +1,10 @@
-const OpenAI          = require("openai");
+const Groq            = require("groq-sdk");
 const StudentProgress = require("../models/StudentProgress.model");
 const Submission      = require("../models/Submission.model");
 const Course          = require("../models/Course.model");
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const groq  = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const MODEL = "llama-3.3-70b-versatile";
 
 // ─── GET /api/analytics/me ────────────────────────────────────────────────────
 const getMyAnalytics = async (req, res) => {
@@ -140,8 +141,8 @@ STUDENT DATA:
 
 Write only 3-4 sentences. No bullet points. No headers. Be warm, specific, and motivating.`;
 
-    const completion = await openai.chat.completions.create({
-      model:      "gpt-4o",
+    const completion = await groq.chat.completions.create({
+      model:      MODEL,
       max_tokens: 300,
       messages:   [{ role: "user", content: prompt }],
     });
