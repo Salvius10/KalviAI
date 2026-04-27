@@ -13,14 +13,16 @@ const teacherLinks = [
 ]
 
 const studentLinks = [
-  { path: '/student/dashboard', label: 'Dashboard', icon: '🏠' },
-  { path: '/student/workspace', label: 'Workspace', icon: '🧩' },
-  { path: '/student/courses', label: 'My Courses', icon: '📚' },
-  { path: '/student/assessments', label: 'Assessments', icon: '📝' },
-  { path: '/student/performance', label: 'Performance', icon: '📊' },
-  { path: '/student/ai-tutor', label: 'AI Tutor', icon: '🤖' },
-  { path: '/student/flashcards', label: 'Flashcards', icon: '🃏' },
+  { path: '/student/dashboard',      label: 'Dashboard',     icon: '🏠' },
+  { path: '/student/workspace',      label: 'Workspace',     icon: '🧩' },
+  { path: '/student/courses',        label: 'My Courses',    icon: '📚' },
+  { path: '/student/assessments',    label: 'Assessments',   icon: '📝' },
+  { path: '/student/performance',    label: 'Performance',   icon: '📊' },
+  { path: '/student/ai-tutor',       label: 'AI Tutor',      icon: '🤖' },
+  { path: '/student/flashcards',     label: 'Flashcards',    icon: '🃏' },
   { path: '/student/study-sessions', label: 'Study Tracker', icon: '⏱️' },
+  { path: '/student/learning-path',  label: 'Learning Path', icon: '🎯' },  
+  { path: '/student/analytics',      label: 'Analytics',     icon: '📊' },  
 ]
 
 const parentLinks = [
