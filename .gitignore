@@ -64,3 +64,5 @@ server/uploads/
 .ssh/
 .credentials
 secrets.json
+node_modules/
+server/node_modules/
