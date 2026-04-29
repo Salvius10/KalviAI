@@ -1,220 +1,237 @@
-# 🎓 KalviAI — AI-Powered Educational Platform
+# KalviAI — AI-Powered School LMS
 
-An intelligent educational platform inspired by Moodle, built with the MERN stack.
-Designed for teachers and students with role-based access, AI-ready architecture,
-and real-time performance analytics.
+KalviAI is a full-stack Learning Management System built with the MERN stack and powered by Groq (Llama 3.3 70B). It supports three roles — Teacher, Student, and Parent — with AI features built directly into the learning experience: a Socratic AI Tutor, AI-generated assessments and flashcards, a personalized weekly learning path, and progress analytics with AI insights.
 
----
-
-## 🧠 Tech Stack
-
-| Layer     | Technology                          |
-|-----------|-------------------------------------|
-| Frontend  | React.js + Vite + Tailwind CSS + shadcn/ui |
-| Backend   | Node.js + Express.js                |
-| Database  | MongoDB Atlas (Mongoose)            |
-| Auth      | JWT (JSON Web Tokens)               |
-| Charts    | Recharts                            |
-| State     | Zustand                             |
+Live deployment: https://kalvi-zeta.vercel.app
 
 ---
 
-## 📁 Project Structure
+## Tech Stack
+
+| Layer      | Technology                                      |
+|------------|-------------------------------------------------|
+| Frontend   | React 19 + Vite + Tailwind CSS + Lucide Icons   |
+| Backend    | Node.js + Express 5                             |
+| Database   | MongoDB Atlas (Mongoose)                        |
+| AI         | Groq SDK — Llama 3.3 70B Versatile              |
+| Auth       | JWT (JSON Web Tokens)                           |
+| Charts     | Recharts                                        |
+| State      | Zustand                                         |
+| File Parse | pdf-parse, mammoth (Word docs)                  |
+
+---
+
+## Features
+
+### Teacher
+- Create and publish courses with PDF/video materials
+- AI-generate assessments from course material
+- Detect plagiarism in student submissions
+- View per-student and class-wide performance analytics
+- Workspace for document editing
+
+### Student
+- Enroll in courses, track material progress
+- Take AI-generated assessments with instant scoring
+- AI Tutor — Socratic-method conversational tutor (Llama 3.3 70B)
+- AI Flashcard Generator — generates cards from course topics
+- Personalized Learning Path — AI-built weekly plan based on weak topics and pending work
+- Progress Analytics — charts, topic performance, and AI-generated insight
+- Study Session tracker
+- Workspace for notes
+
+### Parent
+- Dashboard showing linked child's enrollment, scores, and activity
+- Message teacher (ParentMessage system)
+
+---
+
+## Project Structure
+
 ```
 KalviAI/
-├── package.json              ← Root (runs both servers)
-├── README.md
-├── server/                   ← Backend (Express + MongoDB)
-│   ├── config/
-│   │   └── db.js
-│   ├── controllers/
-│   │   └── auth.controller.js
-│   ├── middleware/
-│   │   └── auth.middleware.js
-│   ├── models/
-│   │   ├── User.model.js
-│   │   ├── Course.model.js
-│   │   ├── Assessment.model.js
-│   │   ├── Submission.model.js
-│   │   ├── StudySession.model.js
-│   │   └── FlashcardSet.model.js
-│   ├── routes/
-│   │   ├── auth.routes.js
-│   │   ├── course.routes.js
-│   │   ├── assessment.routes.js
-│   │   ├── submission.routes.js
-│   │   ├── performance.routes.js
-│   │   ├── studySession.routes.js
-│   │   └── ai.routes.js
-│   ├── .env                  ← You must create this (see below)
-│   ├── index.js
+├── client/                        # React + Vite frontend
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── auth/              # Login, Register
+│   │   │   ├── teacher/           # Dashboard, Courses, Assessments, Performance
+│   │   │   ├── student/           # Dashboard, Courses, Assessments, Performance,
+│   │   │   │                      # AITutor, Flashcards, StudySessions,
+│   │   │   │                      # LearningPath, ProgressAnalytics
+│   │   │   ├── parent/            # Dashboard
+│   │   │   └── shared/            # Workspace
+│   │   ├── components/shared/     # Layout, ThemeToggle
+│   │   ├── lib/                   # axios instance, utils, useAutoRefresh
+│   │   └── store/                 # authStore, themeStore (Zustand)
 │   └── package.json
-└── client/                   ← Frontend (React + Vite)
-    ├── src/
-    │   ├── components/
-    │   │   └── shared/
-    │   │       └── Layout.jsx
-    │   ├── pages/
-    │   │   ├── auth/
-    │   │   │   ├── Login.jsx
-    │   │   │   └── Register.jsx
-    │   │   ├── teacher/
-    │   │   │   ├── Dashboard.jsx
-    │   │   │   ├── Courses.jsx
-    │   │   │   ├── Assessments.jsx
-    │   │   │   └── Performance.jsx
-    │   │   └── student/
-    │   │       ├── Dashboard.jsx
-    │   │       ├── Courses.jsx
-    │   │       ├── Assessments.jsx
-    │   │       ├── Performance.jsx
-    │   │       ├── AITutor.jsx
-    │   │       ├── Flashcards.jsx
-    │   │       └── StudySessions.jsx
-    │   ├── store/
-    │   │   └── authStore.js
-    │   ├── lib/
-    │   │   ├── axios.js
-    │   │   └── utils.js
-    │   ├── App.jsx
-    │   └── main.jsx
+│
+└── server/                        # Express backend
+    ├── controllers/               # ai, auth, analytics, course, learningPath
+    ├── middleware/                # auth.middleware (protect, restrictTo)
+    ├── models/                    # User, Course, Assessment, Submission,
+    │                              # AITutor, FlashcardSet, LearningPath,
+    │                              # StudentProgress, StudySession, ParentMessage
+    ├── routes/                    # ai, auth, analytics, course, assessment,
+    │                              # submission, performance, studySession,
+    │                              # learningPath, parent
+    ├── scripts/                   # reset-db.js
+    ├── index.js
     └── package.json
 ```
 
 ---
 
-## ⚙️ Setup Instructions
+## Installation & Running
+
+### Prerequisites
+- Node.js 18+
+- A [MongoDB Atlas](https://cloud.mongodb.com) account (free tier works)
+- A [Groq](https://console.groq.com) API key (free)
 
 ### 1. Clone the repository
+
 ```bash
-git clone https://github.com/yourusername/kalviai.git
-cd kalviai
+git clone https://github.com/Salvius10/KalviAI.git
+cd KalviAI
 ```
 
-### 2. Install all dependencies
+### 2. Install server dependencies
+
 ```bash
-npm run install:all
+cd server
+npm install
 ```
 
-This installs packages for root, server, and client all at once.
+### 3. Install client dependencies
 
-### 3. Setup environment variables
+```bash
+cd ../client
+npm install
+```
 
-Create a `.env` file inside the `server/` folder:
+### 4. Create the server environment file
+
+Create a file at `server/.env`:
+
 ```env
-PORT=5000
+PORT=3000
 MONGO_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_secret_key_here
+JWT_SECRET=any_long_random_string
 JWT_EXPIRES_IN=7d
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
+CLIENT_ORIGINS=http://localhost:5173,http://localhost:5174
 ```
 
-> 🔑 Get your MongoDB URI from [MongoDB Atlas](https://cloud.mongodb.com)
-> Make sure to whitelist your IP in Atlas → Network Access
+> Get your `MONGO_URI` from MongoDB Atlas → Connect → Drivers.
+> Get your `GROQ_API_KEY` from https://console.groq.com/keys.
+> Make sure to whitelist your IP in Atlas → Network Access (or use `0.0.0.0/0` for dev).
 
-### 4. Run the project
+### 5. Run the servers
+
+Open **two terminals**:
+
+**Terminal 1 — Backend:**
 ```bash
+cd server
 npm run dev
+# Runs on http://localhost:3000
 ```
 
-This starts both servers simultaneously:
-- 🟢 Backend → http://localhost:5000
-- 🟢 Frontend → http://localhost:5173
-
----
-
-## 📦 Dependencies
-
-### Backend (`server/package.json`)
-
-| Package      | Purpose                        |
-|--------------|--------------------------------|
-| express      | Web framework                  |
-| mongoose     | MongoDB ODM                    |
-| bcryptjs     | Password hashing               |
-| jsonwebtoken | JWT authentication             |
-| dotenv       | Environment variables          |
-| cors         | Cross-origin requests          |
-| multer       | File uploads                   |
-| zod          | Input validation               |
-| nodemon      | Auto-restart on file change    |
-
-### Frontend (`client/package.json`)
-
-| Package          | Purpose                        |
-|------------------|--------------------------------|
-| react            | UI framework                   |
-| react-router-dom | Client-side routing            |
-| axios            | HTTP requests                  |
-| zustand          | Global state management        |
-| recharts         | Charts and analytics           |
-| tailwindcss      | Utility-first CSS              |
-| shadcn/ui        | UI component library           |
-| clsx             | Conditional classnames         |
-| tailwind-merge   | Tailwind class merging         |
-
----
-
-## 👥 Role-Based Access
-
-| Feature                  | Teacher | Student |
-|--------------------------|---------|---------|
-| Create/Edit Courses      | ✅      | ❌      |
-| Publish Courses          | ✅      | ❌      |
-| Create Assessments       | ✅      | ❌      |
-| View Student Performance | ✅      | ❌      |
-| Plagiarism Notifications | ✅      | ❌      |
-| Enroll in Courses        | ❌      | ✅      |
-| Take Assessments         | ❌      | ✅      |
-| View Own Performance     | ❌      | ✅      |
-| AI Tutor                 | ❌      | ✅      |
-| Flashcard Generator      | ❌      | ✅      |
-| Study Session Tracker    | ❌      | ✅      |
-
----
-
-## 🤖 AI Integration (Coming Soon)
-
-The following features are scaffolded and ready for AI integration:
-
-| Feature               | Location                              | Status          |
-|-----------------------|---------------------------------------|-----------------|
-| Assessment Generator  | `server/routes/ai.routes.js`          | ⚠️ Placeholder  |
-| AI Tutor (Socratic)   | `src/pages/student/AITutor.jsx`       | ⚠️ Placeholder  |
-| Flashcard Generator   | `src/pages/student/Flashcards.jsx`    | ⚠️ Placeholder  |
-| Plagiarism Detector   | `server/routes/submission.routes.js`  | ⚠️ Placeholder  |
-
-To integrate AI, add your API key to `.env`:
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
+**Terminal 2 — Frontend:**
+```bash
+cd client
+npm run dev
+# Runs on http://localhost:5173
 ```
 
----
-
-## 🔐 Environment Variables Reference
-
-| Variable       | Description                     | Required |
-|----------------|---------------------------------|----------|
-| PORT           | Server port (default: 5000)     | ✅       |
-| MONGO_URI      | MongoDB Atlas connection string | ✅       |
-| JWT_SECRET     | Secret key for JWT tokens       | ✅       |
-| JWT_EXPIRES_IN | JWT expiry (e.g. 7d)            | ✅       |
-| GEMINI_API_KEY | Google Gemini API key           | ⚠️ For AI |
+Then open http://localhost:5173 in your browser.
 
 ---
 
-## 🚀 Available Scripts
+## Environment Variables
 
-| Command               | Description                          |
-|-----------------------|--------------------------------------|
-| `npm run dev`         | Run both frontend + backend          |
-| `npm run server`      | Run backend only                     |
-| `npm run client`      | Run frontend only                    |
-| `npm run install:all` | Install all dependencies at once     |
+| Variable         | Description                                      | Required |
+|------------------|--------------------------------------------------|----------|
+| `PORT`           | Express server port (default: 3000)              | Yes      |
+| `MONGO_URI`      | MongoDB Atlas connection string                  | Yes      |
+| `JWT_SECRET`     | Secret key for signing JWT tokens                | Yes      |
+| `JWT_EXPIRES_IN` | JWT expiry duration (e.g. `7d`)                  | Yes      |
+| `GROQ_API_KEY`   | Groq API key for Llama 3.3 70B                   | Yes      |
+| `GROQ_MODEL`     | Groq model name (default: llama-3.3-70b-versatile) | Yes    |
+| `CLIENT_ORIGINS` | Comma-separated list of allowed frontend origins | Yes      |
 
 ---
 
-## 🛠️ Built With ❤️ by KalviAI Team
+## API Routes
 
-npm run install:all
-# create .env in server/
-npm run dev
+| Method | Route                                  | Access  | Description                        |
+|--------|----------------------------------------|---------|------------------------------------|
+| POST   | `/api/auth/register`                   | Public  | Register teacher or student        |
+| POST   | `/api/auth/login`                      | Public  | Login and receive JWT              |
+| GET    | `/api/auth/me`                         | Auth    | Get current user                   |
+| POST   | `/api/auth/register-parent`            | Auth    | Register parent linked to student  |
+| GET    | `/api/courses`                         | Auth    | List courses                       |
+| POST   | `/api/courses`                         | Teacher | Create course                      |
+| GET    | `/api/assessments`                     | Auth    | List assessments                   |
+| POST   | `/api/submissions`                     | Student | Submit assessment                  |
+| GET    | `/api/performance`                     | Auth    | Student performance data           |
+| POST   | `/api/ai/tutor`                        | Student | Socratic AI tutor message          |
+| GET    | `/api/ai/tutor/history`                | Student | Chat history                       |
+| DELETE | `/api/ai/tutor/clear`                  | Student | Clear chat history                 |
+| POST   | `/api/ai/generate-assessment`          | Teacher | AI-generate assessment from doc    |
+| POST   | `/api/ai/flashcards`                   | Student | AI-generate flashcards             |
+| POST   | `/api/ai/detect-plagiarism`            | Teacher | Plagiarism check on submission     |
+| GET    | `/api/learning-path`                   | Student | Get or generate personalized path  |
+| POST   | `/api/learning-path/regenerate`        | Student | Force regenerate learning path     |
+| PATCH  | `/api/learning-path/goal`              | Student | Update learning goal               |
+| PATCH  | `/api/learning-path/step/:id/complete` | Student | Mark a path step complete          |
+| GET    | `/api/analytics/me`                    | Student | Progress analytics                 |
+| GET    | `/api/analytics/ai-insight`            | Student | AI-generated performance insight   |
+| GET    | `/api/study-sessions`                  | Student | List study sessions                |
+| POST   | `/api/study-sessions`                  | Student | Log a study session                |
+| GET    | `/api/parent`                          | Parent  | Child's data                       |
+
+---
+
+## Role-Based Access
+
+| Feature                    | Teacher | Student | Parent |
+|----------------------------|:-------:|:-------:|:------:|
+| Create/Publish Courses     | Yes     |         |        |
+| AI Assessment Generator    | Yes     |         |        |
+| Plagiarism Detection       | Yes     |         |        |
+| View Class Performance     | Yes     |         |        |
+| Enroll in Courses          |         | Yes     |        |
+| Take Assessments           |         | Yes     |        |
+| AI Tutor (Socratic)        |         | Yes     |        |
+| AI Flashcard Generator     |         | Yes     |        |
+| Personalized Learning Path |         | Yes     |        |
+| Progress Analytics + AI    |         | Yes     |        |
+| Study Session Tracker      |         | Yes     |        |
+| View Child's Progress      |         |         | Yes    |
+
+---
+
+## Available Scripts
+
+### Server (`cd server`)
+
+| Command           | Description                        |
+|-------------------|------------------------------------|
+| `npm run dev`     | Start with nodemon (auto-reload)   |
+| `npm start`       | Start without nodemon              |
+| `npm run reset-db`| Wipe and reseed the database       |
+
+### Client (`cd client`)
+
+| Command           | Description                        |
+|-------------------|------------------------------------|
+| `npm run dev`     | Start Vite dev server              |
+| `npm run build`   | Production build to `dist/`        |
+| `npm run preview` | Preview production build locally   |
+| `npm run lint`    | Run ESLint                         |
+
+---
+
+## Built by the KalviAI Team

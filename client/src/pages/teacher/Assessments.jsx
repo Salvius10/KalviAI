@@ -47,6 +47,7 @@ export default function TeacherAssessments() {
   const [aiMaterialFile, setAiMaterialFile] = useState(null)
   const [aiMaterialText, setAiMaterialText] = useState('')
   const [aiQuestionCount, setAiQuestionCount] = useState(10)
+  const [sourceFile, setSourceFile] = useState(null)
 
   const sanitizeQuestions = (inputQuestions = []) =>
     inputQuestions
@@ -85,6 +86,7 @@ export default function TeacherAssessments() {
     setAiMaterialFile(null)
     setAiMaterialText('')
     setAiQuestionCount(10)
+    setSourceFile(null)
     setError('')
     setShowModal(true)
   }
@@ -128,6 +130,7 @@ export default function TeacherAssessments() {
         dueDate: form.dueDate || undefined,
         duration: form.assessmentType === 'quiz' ? (Number(form.duration) > 0 ? Number(form.duration) : 60) : 0,
         questions: form.assessmentType === 'quiz' ? normalizedQuestions : [],
+        sourceFile: sourceFile || undefined,
         isPublished: true,
       })
       setShowModal(false)
@@ -174,6 +177,7 @@ export default function TeacherAssessments() {
       }
 
       setQuestions(generated)
+      if (res.data?.sourceFile) setSourceFile(res.data.sourceFile)
       if (!form.title.trim()) {
         const selectedCourse = courses.find((course) => course._id === form.courseId)
         setForm((prev) => ({
@@ -273,6 +277,9 @@ export default function TeacherAssessments() {
                       )}
                       {assessment.dueDate && <span>📅 Due {new Date(assessment.dueDate).toLocaleString()}</span>}
                       {assessment.topic && <span>🏷️ {assessment.topic}</span>}
+                      {assessment.sourceFile?.fileName && (
+                        <span className="text-blue-300">📎 {assessment.sourceFile.fileName}</span>
+                      )}
                     </div>
                     {assessmentType === 'pdf_assignment' && assessment.instructions && (
                       <p className="text-slate-300 text-xs mt-2 line-clamp-2">{assessment.instructions}</p>
@@ -511,9 +518,15 @@ export default function TeacherAssessments() {
                         <input
                           type="file"
                           accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                          onChange={(e) => setAiMaterialFile(e.target.files?.[0] || null)}
+                          onChange={(e) => { setAiMaterialFile(e.target.files?.[0] || null); setSourceFile(null) }}
                           className="w-full bg-slate-700/50 border border-slate-600/50 text-slate-300 rounded-lg px-3 py-2 text-xs"
                         />
+                        {aiMaterialFile && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-1.5">
+                            <span>📄</span>
+                            <span className="truncate">{aiMaterialFile.name}</span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs text-slate-400 mb-1.5">Question count (5-10)</label>
@@ -537,13 +550,21 @@ export default function TeacherAssessments() {
                         className="w-full bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-500 rounded-lg px-3 py-2 text-xs focus:outline-none resize-none"
                       />
                     </div>
-                    <button
-                      onClick={handleGenerateWithAI}
-                      disabled={aiGenerating}
-                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all"
-                    >
-                      {aiGenerating ? 'Generating Quiz...' : 'Generate Questions With AI'}
-                    </button>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <button
+                        onClick={handleGenerateWithAI}
+                        disabled={aiGenerating}
+                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all"
+                      >
+                        {aiGenerating ? 'Generating Quiz...' : 'Generate Questions With AI'}
+                      </button>
+                      {sourceFile && (
+                        <span className="text-xs text-blue-300 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                          <span>📎</span>
+                          <span className="truncate max-w-[180px]">{sourceFile.fileName}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>

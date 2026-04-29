@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   LineChart,
   Line,
@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import Layout from '../../components/shared/Layout'
 import api from '../../lib/axios'
+import { useAutoRefresh, LiveBadge } from '../../lib/useAutoRefresh'
 
 const attendanceColors = ['#97e675', '#ff8db3']
 
@@ -23,7 +24,7 @@ export default function ParentDashboard() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
       const res = await api.get('/parents/dashboard')
       setData(res.data)
@@ -32,11 +33,9 @@ export default function ParentDashboard() {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    loadDashboard()
   }, [])
+
+  const { secondsAgo, refresh } = useAutoRefresh(loadDashboard, 30000)
 
   const handleReply = async (e) => {
     e.preventDefault()
@@ -65,25 +64,40 @@ export default function ParentDashboard() {
         <section className="retro-shell overflow-hidden">
           <div className="grid lg:grid-cols-[1.1fr,0.9fr]">
             <div className="border-b-[3px] border-black bg-[#97e675] p-6 lg:border-b-0 lg:border-r-[3px]">
-              <div className="retro-chip bg-white">Parent dashboard</div>
-              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">See progress without digging through tabs.</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="retro-chip bg-white">Parent dashboard</div>
+                <LiveBadge secondsAgo={secondsAgo} onRefresh={refresh} />
+              </div>
+              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">See your child's progress in real time.</h1>
               <p className="mt-4 max-w-2xl text-base font-medium text-black/75">
-                Attendance, teacher behaviour notes, assessment progress, and parent-teacher communication are all on one board.
+                Quiz scores, PDF assignments, attendance, teacher notes — all updated automatically every 30 seconds.
               </p>
             </div>
             <div className="bg-[#fff8e8] p-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-[22px] border-[3px] border-black bg-[#6fa8ff] p-4 shadow-[5px_5px_0_#111111]">
                   <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Student</p>
-                  <p className="mt-3 text-2xl font-black text-black">{data?.student?.name || '...'}</p>
+                  <p className="mt-2 text-lg font-black text-black truncate">{data?.student?.name || '...'}</p>
                 </div>
                 <div className="rounded-[22px] border-[3px] border-black bg-[#ffd84d] p-4 shadow-[5px_5px_0_#111111]">
-                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Average</p>
-                  <p className="mt-3 text-2xl font-black text-black">{Math.round(data?.progress?.averageScore || 0)}%</p>
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Quiz avg</p>
+                  <p className="mt-2 text-2xl font-black text-black">{Math.round(data?.progress?.averageScore || 0)}%</p>
                 </div>
                 <div className="rounded-[22px] border-[3px] border-black bg-[#ff8db3] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Passed</p>
+                  <p className="mt-2 text-2xl font-black text-black">{data?.progress?.passCount ?? 0} / {data?.progress?.quizCount ?? 0}</p>
+                </div>
+                <div className="rounded-[22px] border-[3px] border-black bg-[#97e675] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Quizzes</p>
+                  <p className="mt-2 text-2xl font-black text-black">{data?.progress?.quizCount ?? 0}</p>
+                </div>
+                <div className="rounded-[22px] border-[3px] border-black bg-white p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">PDFs submitted</p>
+                  <p className="mt-2 text-2xl font-black text-black">{data?.progress?.pdfCount ?? 0}</p>
+                </div>
+                <div className="rounded-[22px] border-[3px] border-black bg-[#ffe0b2] p-4 shadow-[5px_5px_0_#111111]">
                   <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Roll no</p>
-                  <p className="mt-3 text-2xl font-black text-black">{data?.student?.rollNo || '--'}</p>
+                  <p className="mt-2 text-xl font-black text-black">{data?.student?.rollNo || '--'}</p>
                 </div>
               </div>
             </div>
@@ -213,11 +227,19 @@ export default function ParentDashboard() {
                       <div key={assessment.id} className={`rounded-[22px] border-[3px] border-black px-4 py-4 shadow-[5px_5px_0_#111111] ${index % 2 === 0 ? 'bg-[#ffd84d]' : 'bg-[#fff8e8]'}`}>
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="text-lg font-black text-black">{assessment.title}</p>
-                            <p className="mt-1 text-sm font-medium text-black/70">{assessment.courseTitle}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-base font-black text-black">{assessment.title}</p>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border border-black ${assessment.submissionType === 'pdf_assignment' ? 'bg-blue-200' : 'bg-green-200'}`}>
+                                {assessment.submissionType === 'pdf_assignment' ? '📄 PDF' : '📝 Quiz'}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs font-medium text-black/70">{assessment.courseTitle}</p>
                           </div>
-                          <div className="rounded-[16px] border-[3px] border-black bg-white px-3 py-2 text-right shadow-[3px_3px_0_#111111]">
-                            <p className="text-lg font-black text-black">{assessment.percentage}%</p>
+                          <div className="rounded-[16px] border-[3px] border-black bg-white px-3 py-2 text-right shadow-[3px_3px_0_#111111] flex-shrink-0">
+                            {assessment.submissionType === 'pdf_assignment'
+                              ? <p className="text-sm font-black text-blue-700">Submitted</p>
+                              : <p className={`text-lg font-black ${assessment.percentage >= 70 ? 'text-green-700' : 'text-red-600'}`}>{assessment.percentage}%</p>
+                            }
                             <p className="retro-mono text-[10px] uppercase tracking-[0.18em] text-black/70">
                               {new Date(assessment.submittedAt).toLocaleDateString()}
                             </p>

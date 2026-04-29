@@ -20,6 +20,11 @@ const assessmentSchema = new mongoose.Schema({
   isPublished: { type: Boolean, default: false },
   topic:       { type: String },
   difficulty:  { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+  sourceFile:  {
+    fileName: { type: String },
+    fileType: { type: String },
+    url:      { type: String },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Assessment", assessmentSchema);

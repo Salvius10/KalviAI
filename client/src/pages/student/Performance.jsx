@@ -1,24 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useState, useCallback } from 'react'
 import Layout from '../../components/shared/Layout'
 import api from '../../lib/axios'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, BarChart, Bar, RadialBarChart, RadialBar
 } from 'recharts'
+import { useAutoRefresh, LiveBadge } from '../../lib/useAutoRefresh'
 
 export default function StudentPerformance() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await api.get('/performance/me')
-        setData(res.data)
-      } catch (err) { console.error(err) } finally { setLoading(false) }
-    }
-    fetch()
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/performance/me')
+      setData(res.data)
+    } catch (err) { console.error(err) } finally { setLoading(false) }
   }, [])
+
+  const { secondsAgo, refresh } = useAutoRefresh(loadData, 30000)
 
   if (loading) return <Layout><div className="text-slate-400 text-sm p-6">Loading...</div></Layout>
 
@@ -46,10 +46,12 @@ export default function StudentPerformance() {
   }))
 
   const stats = [
-    { label: 'Assessments Taken', value: submissions.length,              icon: '📝', color: 'bg-blue-500/10 border-blue-500/30 text-blue-400' },
-    { label: 'Average Score',     value: `${avg}%`,                       icon: '🎯', color: 'bg-purple-500/10 border-purple-500/30 text-purple-400' },
-    { label: 'Highest Score',     value: submissions.length ? `${Math.round(Math.max(...submissions.map(s => s.percentage)))}%` : '0%', icon: '🏆', color: 'bg-green-500/10 border-green-500/30 text-green-400' },
-    { label: 'Lowest Score',      value: submissions.length ? `${Math.round(Math.min(...submissions.map(s => s.percentage)))}%` : '0%', icon: '📉', color: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' },
+    { label: 'Total Submissions',  value: submissions.length,                                                                              icon: '📝', color: 'bg-blue-500/10 border-blue-500/30 text-blue-400' },
+    { label: 'Quiz Average',       value: `${avg}%`,                                                                                       icon: '🎯', color: 'bg-purple-500/10 border-purple-500/30 text-purple-400' },
+    { label: 'Quizzes Taken',      value: data?.quizCount ?? 0,                                                                            icon: '✅', color: 'bg-green-500/10 border-green-500/30 text-green-400' },
+    { label: 'PDFs Submitted',     value: data?.pdfCount ?? 0,                                                                             icon: '📄', color: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' },
+    { label: 'Passed',             value: data?.passCount ?? 0,                                                                            icon: '🏆', color: 'bg-green-500/10 border-green-500/30 text-green-400' },
+    { label: 'Failed',             value: data?.failCount ?? 0,                                                                            icon: '❌', color: 'bg-red-500/10 border-red-500/30 text-red-400' },
   ]
 
   return (
@@ -58,9 +60,12 @@ export default function StudentPerformance() {
         <div className="retro-shell overflow-hidden">
           <div className="grid gap-0 lg:grid-cols-[1.15fr,0.85fr]">
             <div className="border-b-[3px] border-black bg-[#ff8db3] p-6 lg:border-b-0 lg:border-r-[3px]">
-              <div className="retro-chip bg-white">Student performance</div>
-              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">Your scores should feel readable, not faded.</h1>
-              <p className="mt-4 max-w-2xl text-base font-medium text-black/75">Bright charts, clear score cards, and history that works better in light mode.</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="retro-chip bg-white">Student performance</div>
+                <LiveBadge secondsAgo={secondsAgo} onRefresh={refresh} />
+              </div>
+              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">Your scores, quizzes and assignments — all in one view.</h1>
+              <p className="mt-4 max-w-2xl text-base font-medium text-black/75">Auto-refreshes every 30 seconds. Includes both quiz scores and PDF assignment submissions.</p>
             </div>
             <div className="bg-[#fff8e8] p-6">
               <div className="grid grid-cols-2 gap-4">

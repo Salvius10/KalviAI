@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Layout from '../../components/shared/Layout'
 import api from '../../lib/axios'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, LineChart, Line, PieChart, Pie, Cell
 } from 'recharts'
+import { useAutoRefresh, LiveBadge } from '../../lib/useAutoRefresh'
 
 export default function TeacherPerformance() {
   const [courses, setCourses] = useState([])
@@ -23,17 +24,16 @@ export default function TeacherPerformance() {
     fetchCourses()
   }, [])
 
-  useEffect(() => {
+  const loadPerformance = useCallback(async () => {
     if (!selectedCourse) return
-    const fetchSubmissions = async () => {
-      setLoading(true)
-      try {
-        const res = await api.get(`/performance/course/${selectedCourse}`)
-        setPerformance(res.data)
-      } catch (err) { console.error(err) } finally { setLoading(false) }
-    }
-    fetchSubmissions()
+    setLoading(true)
+    try {
+      const res = await api.get(`/performance/course/${selectedCourse}`)
+      setPerformance(res.data)
+    } catch (err) { console.error(err) } finally { setLoading(false) }
   }, [selectedCourse])
+
+  const { secondsAgo, refresh } = useAutoRefresh(loadPerformance, 30000)
 
   const submissions = performance?.submissions || []
   const slowLearners = performance?.slowLearners || []
@@ -76,7 +76,10 @@ export default function TeacherPerformance() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-white">Performance Analytics</h1>
-            <p className="text-slate-400 text-sm mt-1">Track how your students are performing</p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-slate-400 text-sm">Track how your students are performing</p>
+              <LiveBadge secondsAgo={secondsAgo} onRefresh={refresh} />
+            </div>
           </div>
           <select
             value={selectedCourse}

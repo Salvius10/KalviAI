@@ -2,22 +2,23 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { execFileSync } = require("child_process");
-const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth");
 const AITutor = require("../models/AITutor.model");
 const axios = require("axios");
-// Handle potential default export issue with pdf-parse
-const parsePdf = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
+const { createCanvas } = require("canvas");
+// pdfjs-dist v2 — handles both text extraction and page-to-image rendering
+const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
+pdfjsLib.GlobalWorkerOptions.workerSrc = false; // disable worker in Node.js
 
 const MAX_DOC_CHARS = 12000;
-const MAX_QUIZ_DOC_CHARS = 6000;
+const MAX_QUIZ_DOC_CHARS = 10000;
 const MIN_AI_QUIZ_QUESTIONS = 5;
 const MAX_AI_QUIZ_QUESTIONS = 10;
 const QUIZ_RETRY_CONFIGS = [
-  { materialChars: 6000, maxTokens: 2200, questionCap: 10, useResponseFormat: true },
-  { materialChars: 3500, maxTokens: 1600, questionCap: 7, useResponseFormat: true },
-  { materialChars: 2200, maxTokens: 1200, questionCap: 5, useResponseFormat: false },
-  { materialChars: 1400, maxTokens: 900, questionCap: 3, useResponseFormat: false },
+  { materialChars: 10000, maxTokens: 2800, questionCap: 10, useResponseFormat: true },
+  { materialChars: 6000,  maxTokens: 2200, questionCap: 10, useResponseFormat: true },
+  { materialChars: 3500,  maxTokens: 1600, questionCap: 7,  useResponseFormat: false },
+  { materialChars: 2000,  maxTokens: 1200, questionCap: 5,  useResponseFormat: false },
 ];
 
 const toSafeString = (value) => (typeof value === "string" ? value.trim() : "");
@@ -154,12 +155,20 @@ const extractDocumentText = async (file) => {
   const mimeType = file.mimetype || "";
 
   if (mimeType.includes("pdf") || extension === ".pdf") {
-    const parsed = await parsePdf(file.buffer);
-    return {
-      text: (parsed.text || "").slice(0, MAX_DOC_CHARS),
-      fileName: file.originalname,
-      fileType: "pdf",
-    };
+    try {
+      console.log("🔍 Extracting PDF text:", { fileName: file.originalname, bufferSize: file.buffer.length });
+      const extractedText = await extractPdfTextWithPdfjs(file.buffer);
+      console.log("✅ PDF text extracted:", { textLength: extractedText.length, preview: extractedText.slice(0, 200) });
+
+      if (!extractedText.trim()) {
+        throw new Error("This PDF is scanned/image-based — no text layer found. Groq Vision will handle it.");
+      }
+
+      return { text: extractedText, fileName: file.originalname, fileType: "pdf" };
+    } catch (pdfError) {
+      console.error("❌ PDF text extraction error:", pdfError.message);
+      throw pdfError;
+    }
   }
 
   if (
@@ -167,12 +176,26 @@ const extractDocumentText = async (file) => {
     extension === ".docx" ||
     extension === ".doc"
   ) {
-    const parsed = await mammoth.extractRawText({ buffer: file.buffer });
-    return {
-      text: (parsed.value || "").slice(0, MAX_DOC_CHARS),
-      fileName: file.originalname,
-      fileType: extension.replace(".", "") || "word",
-    };
+    try {
+      console.log("🔍 Starting DOCX parsing:", { fileName: file.originalname });
+      const parsed = await mammoth.extractRawText({ buffer: file.buffer });
+      const extractedText = (parsed.value || "").slice(0, MAX_DOC_CHARS);
+
+      console.log("✅ DOCX parsed successfully:", {
+        fileName: file.originalname,
+        textLength: extractedText.length,
+        preview: extractedText.slice(0, 200),
+      });
+
+      if (!extractedText.trim()) {
+        throw new Error("Word document appears to be empty or contains no extractable text.");
+      }
+
+      return { text: extractedText, fileName: file.originalname, fileType: extension.replace(".", "") || "word" };
+    } catch (docxError) {
+      console.error("❌ DOCX parsing error:", docxError.message);
+      throw docxError;
+    }
   }
 
   if (
@@ -180,11 +203,10 @@ const extractDocumentText = async (file) => {
     mimeType.includes("powerpoint") ||
     extension === ".pptx"
   ) {
-    return {
-      text: extractPptxTextFromBuffer(file.buffer, file.originalname),
-      fileName: file.originalname,
-      fileType: "pptx",
-    };
+    console.log("🔍 Starting PPTX parsing:", { fileName: file.originalname });
+    const extractedText = extractPptxTextFromBuffer(file.buffer, file.originalname);
+    console.log("✅ PPTX parsed:", { textLength: extractedText.length, preview: extractedText.slice(0, 200) });
+    return { text: extractedText, fileName: file.originalname, fileType: "pptx" };
   }
 
   if (extension === ".ppt") {
@@ -196,11 +218,9 @@ const extractDocumentText = async (file) => {
   }
 
   if (mimeType.includes("text/plain") || extension === ".txt" || extension === ".md") {
-    return {
-      text: toSafeString(file.buffer?.toString("utf-8") || "").slice(0, MAX_DOC_CHARS),
-      fileName: file.originalname,
-      fileType: extension.replace(".", "") || "txt",
-    };
+    const extractedText = toSafeString(file.buffer?.toString("utf-8") || "").slice(0, MAX_DOC_CHARS);
+    console.log("✅ TXT parsed:", { textLength: extractedText.length, preview: extractedText.slice(0, 200) });
+    return { text: extractedText, fileName: file.originalname, fileType: extension.replace(".", "") || "txt" };
   }
 
   throw new Error("Unsupported file type. Please upload PDF, DOCX, PPTX, or TXT.");
@@ -303,6 +323,27 @@ const normalizeGeneratedQuestions = (questions = []) => {
       };
     })
     .filter((q) => q.questionText && q.options.length >= 2 && q.correctAnswer);
+};
+
+const saveQuizMaterialFile = (file) => {
+  if (!file) return null;
+  try {
+    const dir = path.join(__dirname, "..", "uploads", "quiz-materials");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const ext = path.extname(file.originalname || "").toLowerCase() || ".pdf";
+    const safeName = (file.originalname || "material")
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .slice(0, 60);
+    const uniqueName = `${Date.now()}-${safeName}`;
+    fs.writeFileSync(path.join(dir, uniqueName), file.buffer);
+    return {
+      fileName: file.originalname || uniqueName,
+      fileType: ext.replace(".", ""),
+      url: `/uploads/quiz-materials/${uniqueName}`,
+    };
+  } catch {
+    return null;
+  }
 };
 
 const extractStudyMaterialText = async (file, fallbackText = "") => {
@@ -468,6 +509,178 @@ const parseProviderErrorMessage = (rawError = "") => {
   }
 };
 
+// Extract text from PDF using pdfjs (replaces pdf-parse, no library conflict)
+const extractPdfTextWithPdfjs = async (buffer) => {
+  const data = new Uint8Array(buffer);
+  const pdfDoc = await pdfjsLib.getDocument({ data, verbosity: 0 }).promise;
+  let fullText = "";
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const page = await pdfDoc.getPage(i);
+    const content = await page.getTextContent();
+    fullText += content.items.map((it) => it.str || "").join(" ") + "\n";
+    page.cleanup();
+  }
+  return fullText.slice(0, MAX_DOC_CHARS);
+};
+
+// NodeCanvasFactory required by pdfjs-dist v2 for server-side rendering
+class NodeCanvasFactory {
+  create(width, height) {
+    const canvas = createCanvas(width, height);
+    return { canvas, context: canvas.getContext("2d") };
+  }
+  reset(cc, width, height) {
+    cc.canvas.width = width;
+    cc.canvas.height = height;
+  }
+  destroy(cc) {
+    cc.canvas.width = 0;
+    cc.canvas.height = 0;
+  }
+}
+
+// Convert PDF pages to JPEG base64 images — max 5 (Groq Vision limit)
+const convertPdfPagesToImages = async (buffer, maxPages = 5) => {
+  const data = new Uint8Array(buffer);
+  const factory = new NodeCanvasFactory();
+  const pdfDoc = await pdfjsLib.getDocument({
+    data,
+    canvasFactory: factory,
+    verbosity: 0,
+  }).promise;
+
+  const numPages = Math.min(pdfDoc.numPages, maxPages);
+  console.log(`📄 Converting ${numPages}/${pdfDoc.numPages} PDF pages to images...`);
+  const images = [];
+
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const cc = factory.create(Math.floor(viewport.width), Math.floor(viewport.height));
+
+    await page.render({ canvasContext: cc.context, viewport, canvasFactory: factory }).promise;
+
+    images.push(cc.canvas.toBuffer("image/jpeg", { quality: 0.85 }).toString("base64"));
+    factory.destroy(cc);
+    page.cleanup();
+  }
+
+  console.log(`✅ Converted ${images.length} pages to images`);
+  return images;
+};
+
+const generateQuizFromScannedPdfWithGroqVision = async (images, { apiKey, baseUrl, questionCount, difficulty, topic }) => {
+  const systemPrompt = [
+    "You are an expert quiz generator. The images show pages of a study document.",
+    "Your job: read every page carefully and generate MCQ questions based STRICTLY on the content visible in the document.",
+    "STRICT RULES:",
+    "1. Every question must be answerable using ONLY information explicitly shown in these document pages.",
+    "2. Ask about specific facts, definitions, formulas, named concepts, example values, and processes described in the document.",
+    "3. Do NOT use external knowledge. Every answer must come from the document.",
+    "4. Each question must have exactly 4 options. Distractors must be plausible but wrong based on the document.",
+    `5. Generate exactly ${questionCount} questions.`,
+    `6. Difficulty: ${difficulty}.`,
+    topic ? `7. Focus on topic: ${topic}.` : "",
+    "8. correctAnswer must exactly match one of the 4 option strings.",
+    "",
+    "Return ONLY this JSON — no markdown, no explanation:",
+    '{ "questions": [ { "questionText": "...", "type": "mcq", "options": ["opt1","opt2","opt3","opt4"], "correctAnswer": "opt1", "marks": 1 } ] }',
+  ].filter(Boolean).join("\n");
+
+  const imageContent = images.map((img) => ({
+    type: "image_url",
+    image_url: { url: `data:image/jpeg;base64,${img}` },
+  }));
+
+  console.log(`🤖 Sending ${images.length} PDF page images to Groq Vision...`);
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      max_tokens: 3000,
+      temperature: 0.1,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            ...imageContent,
+            {
+              type: "text",
+              text: `Analyze all the document pages shown above. Generate exactly ${questionCount} MCQ questions based ONLY on the specific content in these pages. Return valid JSON only.`,
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Groq Vision error ${response.status}: ${err}`);
+  }
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content || "";
+};
+
+const generateQuizFromPdfWithClaude = async (fileBuffer, { questionCount, difficulty, topic }) => {
+  const Anthropic = require("@anthropic-ai/sdk");
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const systemPrompt = [
+    "You are an expert quiz generator. Your job is to deeply analyze the uploaded document and generate MCQ questions based STRICTLY on its content.",
+    "STRICT RULES:",
+    "1. Read and analyze the ENTIRE document thoroughly — every page, every section.",
+    "2. Identify specific facts, definitions, formulas, named concepts, examples, and key information explicitly written in the document.",
+    "3. Generate questions ONLY about content that appears in the document. Do NOT use external knowledge.",
+    "4. Each question must test a specific detail from the document (a named concept, a stated definition, a formula, a given example value, a described process).",
+    "5. Each question must have exactly 4 options. Distractors must be plausible but wrong based on the document.",
+    "6. The correct answer must be a direct fact from the document.",
+    `7. Generate exactly ${questionCount} questions.`,
+    `8. Difficulty level: ${difficulty}.`,
+    topic ? `9. Focus on topic: ${topic}.` : "",
+    "10. correctAnswer must exactly match one of the 4 options strings.",
+    "",
+    "Return ONLY this JSON — no markdown fences, no explanation, nothing else:",
+    '{ "questions": [ { "questionText": "...", "type": "mcq", "options": ["opt1", "opt2", "opt3", "opt4"], "correctAnswer": "opt1", "marks": 1 } ] }',
+  ].filter(Boolean).join("\n");
+
+  console.log("🤖 Sending PDF to Claude for analysis...");
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 3000,
+    system: systemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: fileBuffer.toString("base64"),
+            },
+          },
+          {
+            type: "text",
+            text: `Carefully read every page of this document. Then generate exactly ${questionCount} MCQ questions based ONLY on its specific content. Return valid JSON only.`,
+          },
+        ],
+      },
+    ],
+  });
+
+  return response.content[0]?.text || "";
+};
+
 const requestQuizFromGroq = async ({
   baseUrl,
   apiKey,
@@ -480,22 +693,37 @@ const requestQuizFromGroq = async ({
   useResponseFormat,
 }) => {
   const systemPrompt = [
-    "You are an expert assessment generator for teachers.",
-    useResponseFormat
-      ? "Return ONLY valid JSON with no extra text."
-      : "Return a valid JSON object only. Do not include commentary or markdown fences.",
-    "Output format: objects with fields:",
-    "questionText (string), type (must be 'mcq'), options (array of 4 strings), correctAnswer (string), marks (number).",
-    `Generate exactly ${questionCount} questions.`,
-    `Difficulty level: ${difficulty}.`,
-    topic ? `Topic focus: ${topic}.` : "",
-    "Ensure correctAnswer exactly matches one of the options.",
-    "Keep questions clear, non-duplicate, and grounded in the study material.",
-    "Keep each question concise.",
-    "Prefer breadth over long wording.",
+    "You are an expert quiz generator. Your ONLY job is to read the provided document and create MCQ questions about its specific content.",
+    "",
+    "STRICT RULES — follow every rule exactly:",
+    "1. Read the document carefully. Identify specific facts, definitions, names, processes, dates, and key concepts mentioned in the text.",
+    "2. Every single question MUST be answerable using ONLY information explicitly written in the document.",
+    "3. NEVER generate questions about general knowledge, external facts, or topics not mentioned in the text.",
+    "4. Each question must test a SPECIFIC detail from the document (e.g. a named concept, a stated definition, a described process, a mentioned fact).",
+    "5. Wrong options (distractors) must be plausible but clearly incorrect based on the document.",
+    "6. The correct answer must be a direct quote or paraphrase of something written in the document.",
+    `7. Generate exactly ${questionCount} questions.`,
+    `8. Difficulty level: ${difficulty}.`,
+    topic ? `9. Focus questions on the topic: ${topic}.` : "",
+    "10. Ensure correctAnswer exactly matches one of the 4 options strings.",
+    "",
+    "OUTPUT FORMAT — return only this JSON, no markdown fences, no explanation:",
+    '{ "questions": [ { "questionText": "string", "type": "mcq", "options": ["A", "B", "C", "D"], "correctAnswer": "A", "marks": 1 } ] }',
   ]
     .filter(Boolean)
     .join("\n");
+
+  const userMessage = [
+    "DOCUMENT TO ANALYZE:",
+    "===================",
+    studyMaterial,
+    "===================",
+    "",
+    `Based ONLY on the document above, generate exactly ${questionCount} MCQ questions.`,
+    "Each question must reference a specific fact, term, or concept that appears in the document.",
+    "Do not add any knowledge from outside this document.",
+    "Return valid JSON only.",
+  ].join("\n");
 
   return fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
@@ -505,21 +733,12 @@ const requestQuizFromGroq = async ({
     },
     body: JSON.stringify({
       model,
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: maxTokens,
+      ...(useResponseFormat ? { response_format: { type: "json_object" } } : {}),
       messages: [
         { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            "Study material excerpt:",
-            studyMaterial,
-            "",
-            "Return a JSON object with this exact shape:",
-            '{ "questions": [ { "questionText": "...", "type": "mcq", "options": ["A", "B", "C", "D"], "correctAnswer": "A", "marks": 1 } ] }',
-            "Do not include markdown fences or explanations.",
-          ].join("\n"),
-        },
+        { role: "user", content: userMessage },
       ],
     }),
   });
@@ -528,7 +747,7 @@ const requestQuizFromGroq = async ({
 const callGroqTutor = async ({ question, messages, attempt, complexity, documentText }) => {
   const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
   const apiKey = process.env.GROQ_API_KEY;
-  const baseUrl = (process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "");
+  const baseUrl = "https://api.groq.com/openai/v1";
 
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is missing in server environment variables.");
@@ -599,7 +818,7 @@ const callGroqTutor = async ({ question, messages, attempt, complexity, document
 
 exports.tutor = async (req, res) => {
   try {
-    const studentId = req.user._id;
+    const studentId = req.user.id;
     const question = toSafeString(req.body.question);
     const messages = parseMessages(req.body.messages);
     const attempt = clampAttempt(req.body.attemptCount);
@@ -690,7 +909,7 @@ exports.tutor = async (req, res) => {
 
 exports.getChatHistory = async (req, res) => {
   try {
-    const studentId = req.user._id;
+    const studentId = req.user.id;
     console.log("📖 Loading chat history for student:", studentId);
     
     const chatHistory = await AITutor.findOne({ student: studentId })
@@ -718,7 +937,7 @@ exports.getChatHistory = async (req, res) => {
 
 exports.clearChatHistory = async (req, res) => {
   try {
-    const studentId = req.user._id;
+    const studentId = req.user.id;
     
     await AITutor.findOneAndDelete({ student: studentId });
 
@@ -759,7 +978,7 @@ exports.generateQuizFromMaterial = async (req, res) => {
     });
 
     const apiKey = process.env.GROQ_API_KEY;
-    const baseUrl = (process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "");
+    const baseUrl = "https://api.groq.com/openai/v1";
     const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
     if (!apiKey) {
@@ -777,12 +996,67 @@ exports.generateQuizFromMaterial = async (req, res) => {
       : "medium";
     const topic = toSafeString(req.body.topic);
 
+    const sourceFile = req.file ? saveQuizMaterialFile(req.file) : null;
+
+    // ── Vision path for PDFs (scanned or text-based) ────────────────────────
+    const isPdf = req.file && (
+      (req.file.mimetype || "").includes("pdf") ||
+      path.extname(req.file.originalname || "").toLowerCase() === ".pdf"
+    );
+
+    if (isPdf) {
+      // Priority 1: Claude (if ANTHROPIC_API_KEY is set)
+      if (process.env.ANTHROPIC_API_KEY) {
+        console.log("🤖 PDF — using Claude API...");
+        try {
+          const claudeText = await generateQuizFromPdfWithClaude(req.file.buffer, { questionCount, difficulty, topic });
+          const parsed = parseQuizJson(claudeText);
+          const questions = normalizeGeneratedQuestions(Array.isArray(parsed) ? parsed : parsed?.questions);
+          if (questions.length) {
+            console.log("✅ Claude generated questions:", { count: questions.length });
+            return res.status(200).json({ questions, generatedCount: questions.length, requestedCount: questionCount, difficulty, topic, source: "claude", sourceFile });
+          }
+        } catch (claudeError) {
+          console.error("❌ Claude failed, trying Groq Vision:", claudeError.message);
+        }
+      }
+
+      // Priority 2: Groq Vision (convert pages → JPEG → llama-4-scout)
+      console.log("🤖 PDF — using Groq Vision (llama-4-scout)...");
+      try {
+        const images = await convertPdfPagesToImages(req.file.buffer);
+        if (images.length > 0) {
+          const visionText = await generateQuizFromScannedPdfWithGroqVision(images, {
+            apiKey, baseUrl, questionCount, difficulty, topic,
+          });
+          console.log("📝 Groq Vision response preview:", visionText.slice(0, 300));
+          const parsed = parseQuizJson(visionText);
+          const questions = normalizeGeneratedQuestions(Array.isArray(parsed) ? parsed : parsed?.questions);
+          if (questions.length) {
+            console.log("✅ Groq Vision generated questions:", { count: questions.length });
+            return res.status(200).json({ questions, generatedCount: questions.length, requestedCount: questionCount, difficulty, topic, source: "groq-vision", sourceFile });
+          }
+        }
+        return res.status(500).json({ message: "Could not generate valid questions from this PDF. Try uploading a clearer scan." });
+      } catch (visionError) {
+        console.error("❌ Groq Vision failed:", visionError.message);
+        return res.status(500).json({ message: `PDF quiz generation failed: ${visionError.message}` });
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     console.log("📚 Extracting material...");
-    const studyMaterial = await extractStudyMaterialText(req.file, req.body.materialText);
+    let studyMaterial;
+    try {
+      studyMaterial = await extractStudyMaterialText(req.file, req.body.materialText);
+    } catch (extractError) {
+      console.error("❌ Text extraction failed:", extractError.message);
+      return res.status(400).json({ message: extractError.message });
+    }
 
     console.log("📄 Material extracted:", {
       materialLength: studyMaterial.length,
-      materialPreview: studyMaterial.slice(0, 100),
+      materialPreview: studyMaterial.slice(0, 300),
     });
 
     if (!studyMaterial) {
@@ -861,6 +1135,7 @@ exports.generateQuizFromMaterial = async (req, res) => {
           difficulty,
           topic,
           source: "ai",
+          sourceFile,
         });
       }
 
@@ -884,6 +1159,7 @@ exports.generateQuizFromMaterial = async (req, res) => {
         difficulty,
         topic,
         source: "fallback",
+        sourceFile,
         warning: "AI provider limits were reached, so questions were generated from extracted study text.",
       });
     }
@@ -905,7 +1181,7 @@ exports.generateQuizFromMaterial = async (req, res) => {
 exports.generateFlashcards = async (req, res) => {
   try {
     const apiKey = process.env.GROQ_API_KEY;
-    const baseUrl = (process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "");
+    const baseUrl = "https://api.groq.com/openai/v1";
     const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
     const topic = toSafeString(req.body.topic);
     const notes = toSafeString(req.body.notes);

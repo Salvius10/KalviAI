@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
-import useAuthStore from '../../store/authStore'
+import Layout from '../../components/shared/Layout'
+import api from '../../lib/axios'
 
-const PRIORITY_STYLES = {
-  high:   'bg-red-500/20 text-red-400 border border-red-500/30',
-  medium: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
-  low:    'bg-green-500/20 text-green-400 border border-green-500/30',
+const PRIORITY_COLOR = {
+  high:   'bg-[#ff8db3]',
+  medium: 'bg-[#ffd84d]',
+  low:    'bg-[#97e675]',
 }
 
 const TYPE_ICON = { material: '📄', assessment: '✏️', review: '🔁' }
 
 export default function LearningPath() {
-  const { token } = useAuthStore()
   const [path, setPath]           = useState(null)
   const [loading, setLoading]     = useState(true)
   const [regenerating, setRegen]  = useState(false)
@@ -19,13 +18,11 @@ export default function LearningPath() {
   const [goalInput, setGoalInput] = useState('')
   const [error, setError]         = useState(null)
 
-  const headers = { headers: { Authorization: `Bearer ${token}` } }
-
   const fetchPath = async () => {
     try {
       setLoading(true)
       setError(null)
-      const { data } = await axios.get('/api/learning-path', headers)
+      const { data } = await api.get('/learning-path')
       setPath(data.data)
       setGoalInput(data.data.goal || '')
     } catch {
@@ -41,7 +38,7 @@ export default function LearningPath() {
     try {
       setRegen(true)
       setError(null)
-      const { data } = await axios.post('/api/learning-path/regenerate', {}, headers)
+      const { data } = await api.post('/learning-path/regenerate', {})
       setPath(data.data)
       setGoalInput(data.data.goal || '')
     } catch {
@@ -53,7 +50,7 @@ export default function LearningPath() {
 
   const handleMarkComplete = async (stepId) => {
     try {
-      const { data } = await axios.patch(`/api/learning-path/step/${stepId}/complete`, {}, headers)
+      const { data } = await api.patch(`/learning-path/step/${stepId}/complete`, {})
       setPath(data.data)
     } catch {
       setError('Could not mark step complete.')
@@ -63,7 +60,7 @@ export default function LearningPath() {
   const handleSaveGoal = async () => {
     if (!goalInput.trim()) return
     try {
-      await axios.patch('/api/learning-path/goal', { goal: goalInput }, headers)
+      await api.patch('/learning-path/goal', { goal: goalInput })
       setEditGoal(false)
       fetchPath()
     } catch {
@@ -71,184 +68,209 @@ export default function LearningPath() {
     }
   }
 
-  // ── Loading screen ──────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-      <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-500/30 animate-pulse">
-          <span className="text-2xl">🎯</span>
-        </div>
-        <p className="text-slate-400 text-sm mt-2">AI is building your personalized path…</p>
+    <Layout>
+      <div className="retro-panel flex flex-col items-center justify-center py-24 gap-4">
+        <div className="text-5xl animate-bounce">🎯</div>
+        <p className="retro-title text-2xl">Building your path…</p>
+        <p className="text-sm text-black/60 font-medium">Groq AI is personalising your learning plan</p>
       </div>
-    </div>
+    </Layout>
   )
 
-  // ── Error screen ────────────────────────────────────────────────────────────
   if (error) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-      <div className="text-center">
-        <p className="text-red-400 mb-4">{error}</p>
-        <button onClick={fetchPath} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm transition">
+    <Layout>
+      <div className="retro-panel flex flex-col items-center justify-center py-24 gap-4">
+        <div className="text-5xl">⚠️</div>
+        <p className="font-bold text-black text-lg">{error}</p>
+        <button onClick={fetchPath} className="retro-button bg-[#6fa8ff] px-6">
           Retry
         </button>
       </div>
-    </div>
+    </Layout>
   )
 
   if (!path) return null
 
   const pct = path.totalSteps > 0 ? Math.round((path.completedSteps / path.totalSteps) * 100) : 0
 
-  // ── Main page ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      <div className="max-w-3xl mx-auto space-y-5">
+    <Layout>
+      <div className="space-y-6">
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">My Learning Path</h1>
-            <p className="text-slate-400 text-sm mt-1">Personalized by AI · refreshes weekly</p>
+        {/* Hero */}
+        <section className="retro-shell overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[1.3fr,0.7fr]">
+            <div className="border-b-[3px] border-black bg-[#6fa8ff] p-6 lg:border-b-0 lg:border-r-[3px]">
+              <div className="retro-chip bg-white">AI learning path</div>
+              <h1 className="retro-title mt-4 text-4xl sm:text-5xl">
+                Your personalised study roadmap.
+              </h1>
+              <p className="mt-4 max-w-2xl text-base font-medium text-black/75">
+                Generated by Groq AI from your course progress and assessment scores. Refreshes every 7 days or on demand.
+              </p>
+            </div>
+            <div className="bg-[#fff8e8] p-6 flex flex-col gap-4 justify-center">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-[22px] border-[3px] border-black bg-[#ffd84d] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Completed</p>
+                  <p className="mt-3 text-3xl font-black text-black">{path.completedSteps}</p>
+                </div>
+                <div className="rounded-[22px] border-[3px] border-black bg-[#97e675] p-4 shadow-[5px_5px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Total Steps</p>
+                  <p className="mt-3 text-3xl font-black text-black">{path.totalSteps}</p>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div>
+                <div className="flex justify-between text-xs font-bold text-black/70 mb-1.5">
+                  <span>Progress</span>
+                  <span>{pct}%</span>
+                </div>
+                <div className="w-full bg-black/10 rounded-full h-3 border-[2px] border-black overflow-hidden">
+                  <div
+                    className="h-full bg-[#6fa8ff] rounded-full transition-all duration-700"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+              {path.estimatedTotalMinutes > 0 && (
+                <p className="retro-mono text-xs text-black/60 uppercase tracking-wide">
+                  ~{Math.round(path.estimatedTotalMinutes / 60)}h total · refreshes {new Date(path.nextRefreshAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Controls row */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {path.weakTopics?.length > 0 && path.weakTopics.map((t) => (
+              <span key={t} className="retro-chip bg-[#ff8db3]">{t} · weak</span>
+            ))}
+            {path.strongTopics?.length > 0 && path.strongTopics.map((t) => (
+              <span key={t} className="retro-chip bg-[#97e675]">{t} · strong</span>
+            ))}
+            {!path.weakTopics?.length && !path.strongTopics?.length && (
+              <span className="retro-chip bg-[#fff8e8]">No topic data yet</span>
+            )}
           </div>
           <button
             onClick={handleRegenerate}
             disabled={regenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl text-sm text-slate-300 disabled:opacity-50 transition"
+            className="retro-button bg-[#ffd84d] px-5"
           >
             {regenerating
-              ? <><span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin inline-block" /> Regenerating…</>
+              ? <><span className="inline-block w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />Regenerating…</>
               : '↻ Regenerate'}
           </button>
         </div>
 
         {/* Goal */}
-        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Your Goal</span>
+        <div className="retro-panel p-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="retro-chip bg-[#d9e9ff]">Your goal</p>
             {!editGoal && (
-              <button onClick={() => setEditGoal(true)} className="text-xs text-slate-400 hover:text-white transition">Edit</button>
+              <button
+                onClick={() => setEditGoal(true)}
+                className="retro-button bg-white px-4 py-2 text-xs"
+              >
+                Edit
+              </button>
             )}
           </div>
           {editGoal ? (
-            <div className="flex gap-2">
+            <div className="flex gap-3 flex-wrap">
               <input
-                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="retro-input flex-1 min-w-0"
                 value={goalInput}
                 onChange={(e) => setGoalInput(e.target.value)}
                 placeholder="e.g. Score 85% in my upcoming exams"
               />
-              <button onClick={handleSaveGoal} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition">Save</button>
-              <button onClick={() => setEditGoal(false)} className="px-3 py-1.5 text-slate-400 hover:text-white text-sm transition">Cancel</button>
+              <button onClick={handleSaveGoal} className="retro-button bg-[#6fa8ff] px-5">Save</button>
+              <button onClick={() => setEditGoal(false)} className="retro-button bg-white px-5">Cancel</button>
             </div>
           ) : (
-            <p className="text-slate-200 text-sm">{path.goal}</p>
+            <p className="text-black font-medium text-base mt-1">{path.goal}</p>
           )}
         </div>
 
-        {/* AI Summary */}
+        {/* AI Coach Summary */}
         {path.summary && (
-          <div className="bg-slate-800/60 border border-purple-500/30 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-purple-400">✦</span>
-              <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">AI Coach Summary</span>
+          <div className="retro-panel p-6 bg-[#d9e9ff]">
+            <p className="retro-chip bg-white mb-3">✦ AI coach summary</p>
+            <p className="text-black font-medium leading-relaxed">{path.summary}</p>
+          </div>
+        )}
+
+        {/* Steps */}
+        <div className="retro-panel p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <p className="retro-chip bg-[#ffd84d]">Steps</p>
+              <h2 className="retro-title mt-3 text-3xl">Your Study Plan</h2>
             </div>
-            <p className="text-slate-300 text-sm leading-relaxed">{path.summary}</p>
+            <span className="retro-chip bg-white">{path.completedSteps}/{path.totalSteps} done</span>
           </div>
-        )}
 
-        {/* Weak / Strong topics */}
-        {(path.weakTopics?.length > 0 || path.strongTopics?.length > 0) && (
-          <div className="grid grid-cols-2 gap-4">
-            {path.weakTopics?.length > 0 && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
-                <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Needs Attention</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {path.weakTopics.map((t) => (
-                    <span key={t} className="text-xs bg-red-500/20 text-red-300 border border-red-500/30 px-2 py-0.5 rounded-full">{t}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {path.strongTopics?.length > 0 && (
-              <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
-                <p className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2">Strengths</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {path.strongTopics.map((t) => (
-                    <span key={t} className="text-xs bg-green-500/20 text-green-300 border border-green-500/30 px-2 py-0.5 rounded-full">{t}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Progress bar */}
-        <div>
-          <div className="flex justify-between text-sm text-slate-400 mb-2">
-            <span>{path.completedSteps} of {path.totalSteps} steps done</span>
-            <span>{pct}%</span>
-          </div>
-          <div className="w-full bg-slate-700 rounded-full h-2">
-            <div className="bg-blue-500 h-2 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-
-        {/* Steps list */}
-        <div className="space-y-3">
-          {path.steps.map((step, idx) => (
-            <div
-              key={step._id || idx}
-              className={`flex gap-4 p-4 rounded-2xl border transition-all ${
-                step.completed
-                  ? 'bg-slate-800/30 border-slate-700/50 opacity-50'
-                  : 'bg-slate-800/60 border-slate-700 hover:border-slate-500'
-              }`}
-            >
-              {/* Circle */}
-              <div className="flex-shrink-0 mt-0.5">
-                {step.completed
-                  ? <div className="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center text-green-400 text-sm">✓</div>
-                  : <div className="w-7 h-7 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 text-xs font-medium">{step.order}</div>
-                }
-              </div>
-
-              {/* Text */}
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                  <span className="text-sm">{TYPE_ICON[step.type] || '📌'}</span>
-                  <span className={`text-sm font-medium ${step.completed ? 'line-through text-slate-500' : 'text-white'}`}>
-                    {step.title}
-                  </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_STYLES[step.priority]}`}>
-                    {step.priority}
-                  </span>
-                </div>
-                {step.reason && <p className="text-xs text-slate-400 italic mt-0.5">{step.reason}</p>}
-                {step.estimatedMinutes && <p className="text-xs text-slate-500 mt-1">~{step.estimatedMinutes} min</p>}
-              </div>
-
-              {/* Done button */}
-              {!step.completed && (
-                <button
-                  onClick={() => handleMarkComplete(step._id)}
-                  className="flex-shrink-0 self-center px-3 py-1.5 text-xs bg-slate-700 hover:bg-blue-600 border border-slate-600 hover:border-blue-500 text-slate-300 hover:text-white rounded-lg transition"
+          {path.steps.length === 0 ? (
+            <div className="rounded-[22px] border-[3px] border-dashed border-black bg-[#fff0e4] px-6 py-14 text-center">
+              <p className="text-lg font-bold text-black">No steps generated yet.</p>
+              <p className="mt-2 text-sm font-medium text-black/70">Hit Regenerate to build your plan.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {path.steps.map((step, idx) => (
+                <div
+                  key={step._id || idx}
+                  className={`flex gap-4 items-start rounded-[22px] border-[3px] border-black px-4 py-4 shadow-[4px_4px_0_#111111] transition-all ${
+                    step.completed ? 'opacity-50 bg-[#f5f5f5]' : 'bg-[#fff8e8] hover:-translate-y-0.5'
+                  }`}
                 >
-                  Done
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+                  {/* Order circle */}
+                  <div className="flex-shrink-0 mt-0.5">
+                    {step.completed
+                      ? <div className="w-8 h-8 rounded-full border-[3px] border-black bg-[#97e675] flex items-center justify-center font-black text-black text-sm">✓</div>
+                      : <div className="w-8 h-8 rounded-full border-[3px] border-black bg-white flex items-center justify-center font-black text-black text-sm">{step.order}</div>
+                    }
+                  </div>
 
-        {/* Footer */}
-        {path.estimatedTotalMinutes > 0 && (
-          <p className="text-xs text-slate-500 text-center pb-4">
-            ~{Math.round(path.estimatedTotalMinutes / 60)}h total · refreshes{' '}
-            {new Date(path.nextRefreshAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </p>
-        )}
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="text-base">{TYPE_ICON[step.type] || '📌'}</span>
+                      <span className={`font-black text-black text-sm ${step.completed ? 'line-through text-black/40' : ''}`}>
+                        {step.title}
+                      </span>
+                      <span className={`retro-chip text-black ${PRIORITY_COLOR[step.priority] || 'bg-white'}`}>
+                        {step.priority}
+                      </span>
+                    </div>
+                    {step.reason && (
+                      <p className="text-xs text-black/60 font-medium italic">{step.reason}</p>
+                    )}
+                    {step.estimatedMinutes > 0 && (
+                      <p className="retro-mono text-xs text-black/50 mt-1 uppercase tracking-wide">~{step.estimatedMinutes} min</p>
+                    )}
+                  </div>
+
+                  {/* Done button */}
+                  {!step.completed && (
+                    <button
+                      onClick={() => handleMarkComplete(step._id)}
+                      className="retro-button bg-[#97e675] px-4 py-2 text-xs flex-shrink-0 self-center"
+                    >
+                      Done
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
       </div>
-    </div>
+    </Layout>
   )
 }

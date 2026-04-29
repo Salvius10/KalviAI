@@ -40,14 +40,39 @@ const getLearnerBand = (averageScore, scoredAttempts) => {
 router.get("/me", protect, restrictTo("student"), async (req, res) => {
   try {
     const submissions = await Submission.find({ student: req.user.id })
-      .populate({ path: "assessment", select: "title topic difficulty course" });
-    const scoredSubmissions = submissions.filter((submission) => (submission.submissionType || "quiz") === "quiz");
+      .populate({ path: "assessment", select: "title topic difficulty course" })
+      .sort({ createdAt: -1 });
+
+    const quizSubmissions = submissions.filter((s) => (s.submissionType || "quiz") === "quiz");
+    const pdfSubmissions  = submissions.filter((s) => s.submissionType === "pdf_assignment");
+
+    const averageScore = quizSubmissions.length
+      ? quizSubmissions.reduce((s, sub) => s + sub.percentage, 0) / quizSubmissions.length
+      : 0;
+
+    const recentActivity = submissions.slice(0, 10).map((s) => ({
+      id: s._id,
+      title: s.assessment?.title || "Assessment",
+      topic: s.assessment?.topic || "General",
+      type: s.submissionType || "quiz",
+      percentage: Math.round(s.percentage || 0),
+      totalScore: s.totalScore,
+      maxScore: s.maxScore,
+      submittedAt: s.createdAt,
+    }));
+
     const stats = {
       totalAttempted: submissions.length,
-      averageScore: scoredSubmissions.length
-        ? scoredSubmissions.reduce((s, sub) => s + sub.percentage, 0) / scoredSubmissions.length
-        : 0,
+      quizCount: quizSubmissions.length,
+      pdfCount: pdfSubmissions.length,
+      averageScore,
+      highestScore: quizSubmissions.length ? Math.max(...quizSubmissions.map((s) => s.percentage)) : 0,
+      lowestScore:  quizSubmissions.length ? Math.min(...quizSubmissions.map((s) => s.percentage)) : 0,
+      passCount: quizSubmissions.filter((s) => s.percentage >= 70).length,
+      failCount: quizSubmissions.filter((s) => s.percentage < 70).length,
       submissions,
+      recentActivity,
+      lastUpdated: new Date(),
     };
     res.json(stats);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -78,16 +103,22 @@ router.get("/course/:courseId", protect, restrictTo("teacher"), async (req, res)
       .sort((a, b) => new Date(b.submittedAt || b.createdAt) - new Date(a.submittedAt || a.createdAt));
     const scoredSubmissions = filtered.filter((submission) => (submission.submissionType || "quiz") === "quiz");
 
+    const pdfSubs  = filtered.filter((s) => s.submissionType === "pdf_assignment");
+    const quizSubs = filtered.filter((s) => (s.submissionType || "quiz") === "quiz");
+
     const overview = {
       totalStudents: course.students?.length || 0,
       activeStudents: new Set(filtered.map((submission) => String(submission.student._id))).size,
       totalSubmissions: filtered.length,
+      quizSubmissions: quizSubs.length,
+      pdfSubmissions: pdfSubs.length,
       averageScore: scoredSubmissions.length
         ? scoredSubmissions.reduce((sum, submission) => sum + submission.percentage, 0) / scoredSubmissions.length
         : 0,
       passCount: scoredSubmissions.filter((submission) => submission.percentage >= 70).length,
       failCount: scoredSubmissions.filter((submission) => submission.percentage < 70).length,
       plagiarismFlags: filtered.filter((submission) => submission.plagiarismFlag).length,
+      lastUpdated: new Date(),
     };
 
     const studentMap = new Map();

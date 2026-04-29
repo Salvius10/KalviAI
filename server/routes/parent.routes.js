@@ -68,16 +68,21 @@ router.get("/dashboard", protect, restrictTo("parent"), async (req, res) => {
       progress: {
         totalCourses: courses.length,
         totalAssessments: submissions.length,
+        quizCount: scoredSubmissions.length,
+        pdfCount: submissions.filter((s) => s.submissionType === "pdf_assignment").length,
         averageScore,
+        passCount: scoredSubmissions.filter((s) => s.percentage >= 70).length,
+        failCount: scoredSubmissions.filter((s) => s.percentage < 70).length,
+        lastUpdated: new Date(),
         recentScores: scoredSubmissions.slice(0, 6).reverse().map((submission, index) => ({
           label: submission.assessment?.title || `Assessment ${index + 1}`,
           score: Math.round(submission.percentage || 0),
         })),
-        recentAssessments: submissions.slice(0, 5).map((submission) => ({
+        recentAssessments: submissions.slice(0, 8).map((submission) => ({
           id: submission._id,
           title: submission.assessment?.title || "Assessment",
           courseTitle: submission.assessment?.course?.title || "Assigned course",
-          submittedAt: submission.submittedAt,
+          submittedAt: submission.submittedAt || submission.createdAt,
           percentage: Math.round(submission.percentage || 0),
           submissionType: submission.submissionType || "quiz",
         })),

@@ -38,14 +38,16 @@ export default function Register() {
           </div>
           <section className="retro-shell overflow-hidden">
             <div className="grid lg:grid-cols-[1fr,1fr]">
+              {/* Left panel — hardcoded blue bg, force black text */}
               <div className="border-b-[3px] border-black bg-[#6fa8ff] p-6 lg:border-b-0 lg:border-r-[3px]">
-                <div className="retro-chip bg-white">Account setup</div>
-                <h1 className="retro-title mt-5 text-5xl sm:text-6xl">Register</h1>
+                <div className="retro-chip bg-white text-black border-black">Account setup</div>
+                <h1 className="retro-title mt-5 text-5xl sm:text-6xl text-black">Register</h1>
                 <p className="mt-4 max-w-xl text-base font-medium text-black/75">
                   Create a student or teacher account. Students must include a roll number.
                 </p>
               </div>
-              <div className="bg-[#fff8e8] p-6">
+              {/* Right panel — CSS variable background so it adapts to dark mode */}
+              <div className="bg-[color:var(--retro-paper)] p-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-[22px] border-[3px] border-black bg-[#ffd84d] p-4 shadow-[5px_5px_0_#111111]">
                     <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Student</p>
@@ -63,10 +65,10 @@ export default function Register() {
           <section className="retro-panel p-6">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
-                <p className="retro-chip bg-[#ffd84d]">Create account</p>
+                <p className="retro-chip bg-[#ffd84d] text-black border-black">Create account</p>
                 <h2 className="retro-title mt-3 text-4xl">Join KalviAI</h2>
               </div>
-              <Link to="/login" className="retro-button bg-white px-4 py-2">
+              <Link to="/login" className="retro-button bg-[color:var(--retro-paper)] px-4 py-2">
                 Login
               </Link>
             </div>
@@ -79,7 +81,7 @@ export default function Register() {
 
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Full name</label>
+                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Full name</label>
                 <input
                   type="text"
                   name="name"
@@ -92,7 +94,7 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Email address</label>
+                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Email address</label>
                 <input
                   type="email"
                   name="email"
@@ -105,7 +107,7 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Password</label>
+                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Password</label>
                 <input
                   type="password"
                   name="password"
@@ -118,13 +120,13 @@ export default function Register() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Role</label>
+                <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Role</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, role: 'student' })}
-                    className={`rounded-[18px] border-[3px] border-black px-4 py-4 text-sm font-black uppercase tracking-[0.12em] text-black transition-transform hover:-translate-y-0.5 ${
-                      form.role === 'student' ? 'bg-[#6fa8ff] shadow-[5px_5px_0_#111111]' : 'bg-white shadow-[3px_3px_0_#111111]'
+                    className={`rounded-[18px] border-[3px] border-[color:var(--retro-ink)] px-4 py-4 text-sm font-black uppercase tracking-[0.12em] text-[color:var(--retro-ink)] transition-transform hover:-translate-y-0.5 ${
+                      form.role === 'student' ? 'bg-[#6fa8ff] !text-black !border-black shadow-[5px_5px_0_#111111]' : 'bg-[color:var(--retro-paper)] shadow-[3px_3px_0_#111111]'
                     }`}
                   >
                     Student
@@ -132,8 +134,8 @@ export default function Register() {
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, role: 'teacher' })}
-                    className={`rounded-[18px] border-[3px] border-black px-4 py-4 text-sm font-black uppercase tracking-[0.12em] text-black transition-transform hover:-translate-y-0.5 ${
-                      form.role === 'teacher' ? 'bg-[#c6b3ff] shadow-[5px_5px_0_#111111]' : 'bg-white shadow-[3px_3px_0_#111111]'
+                    className={`rounded-[18px] border-[3px] border-[color:var(--retro-ink)] px-4 py-4 text-sm font-black uppercase tracking-[0.12em] text-[color:var(--retro-ink)] transition-transform hover:-translate-y-0.5 ${
+                      form.role === 'teacher' ? 'bg-[#c6b3ff] !text-black !border-black shadow-[5px_5px_0_#111111]' : 'bg-[color:var(--retro-paper)] shadow-[3px_3px_0_#111111]'
                     }`}
                   >
                     Teacher
@@ -143,7 +145,7 @@ export default function Register() {
 
               {form.role === 'student' && (
                 <div className="md:col-span-2">
-                  <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Roll number</label>
+                  <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Roll number</label>
                   <input
                     type="text"
                     name="rollNo"
@@ -157,15 +159,15 @@ export default function Register() {
               )}
 
               <div className="md:col-span-2">
-                <button type="submit" disabled={loading} className="retro-button w-full bg-[#ffd84d]">
+                <button type="submit" disabled={loading} className="retro-button w-full bg-[#ffd84d] text-black border-black">
                   {loading ? 'Creating account...' : 'Create account'}
                 </button>
               </div>
             </form>
 
-            <p className="mt-5 text-sm font-medium text-black/70">
+            <p className="mt-5 text-sm font-medium text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">
               Parent setup is available only from the parent login screen. Already have an account?{' '}
-              <Link to="/login" className="font-black text-black underline">
+              <Link to="/login" className="font-black text-[color:var(--retro-ink)] underline">
                 Sign in
               </Link>
             </p>

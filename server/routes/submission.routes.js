@@ -164,7 +164,19 @@ router.post("/", protect, restrictTo("student"), async (req, res) => {
       percentage,
     });
 
-    res.status(201).json(submission);
+    // Include full question review so student can see correct answers immediately
+    const reviewedAnswers = assessment.questions.map((q, i) => ({
+      questionText: q.questionText,
+      questionType: q.type,
+      options: q.options || [],
+      correctAnswer: q.correctAnswer || "",
+      studentAnswer: gradedAnswers[i]?.studentAnswer || "",
+      isCorrect: Boolean(gradedAnswers[i]?.isCorrect),
+      marks: q.marks,
+      marksAwarded: gradedAnswers[i]?.marksAwarded || 0,
+    }));
+
+    res.status(201).json({ ...submission.toObject(), reviewedAnswers });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

@@ -78,29 +78,29 @@ export default function Login() {
           <section className="retro-shell overflow-hidden">
             <div className="grid lg:grid-cols-[1.05fr,0.95fr]">
               <div className="border-b-[3px] border-black bg-[#ffd84d] p-6 lg:border-b-0 lg:border-r-[3px]">
-                <div className="retro-chip bg-white">Retro access</div>
-                <h1 className="retro-title mt-5 text-5xl sm:text-6xl">KalviAI Login</h1>
+                <div className="retro-chip bg-white text-black border-black">Retro access</div>
+                <h1 className="retro-title mt-5 text-5xl sm:text-6xl text-black">KalviAI Login</h1>
                 <p className="mt-4 max-w-xl text-base font-medium text-black/75">
                   Teacher, student, and parent access now live in one retro-styled entry screen.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <span className="retro-chip bg-white">Student: email + roll no + password</span>
-                  <span className="retro-chip bg-white">Teacher: email + password</span>
-                  <span className="retro-chip bg-white">Parent: roll no + password</span>
+                  <span className="retro-chip bg-white text-black border-black">Student: email + roll no + password</span>
+                  <span className="retro-chip bg-white text-black border-black">Teacher: email + password</span>
+                  <span className="retro-chip bg-white text-black border-black">Parent: roll no + password</span>
                 </div>
               </div>
 
-              <div className="bg-[#fff8e8] p-6">
+              <div className="bg-[color:var(--retro-paper)] p-6">
                 <div className="grid grid-cols-3 gap-3">
                   {portals.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => handlePortalChange(item.id)}
-                      className={`rounded-[18px] border-[3px] border-black px-4 py-3 text-sm font-black uppercase tracking-[0.12em] text-black transition-transform hover:-translate-y-0.5 ${
+                      className={`rounded-[18px] border-[3px] border-[color:var(--retro-ink)] px-4 py-3 text-sm font-black uppercase tracking-[0.12em] text-[color:var(--retro-ink)] transition-transform hover:-translate-y-0.5 ${
                         portal === item.id
-                          ? `${item.color} shadow-[5px_5px_0_#111111]`
-                          : 'bg-white shadow-[3px_3px_0_#111111]'
+                          ? `${item.color} !text-black !border-black shadow-[5px_5px_0_#111111]`
+                          : 'bg-[color:var(--retro-paper)] shadow-[3px_3px_0_#111111]'
                       }`}
                     >
                       {item.label}
@@ -108,10 +108,10 @@ export default function Login() {
                   ))}
                 </div>
 
-                <div className="mt-6 rounded-[24px] border-[3px] border-black bg-white p-5 shadow-[6px_6px_0_#111111]">
-                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-black/70">Selected portal</p>
+                <div className="mt-6 rounded-[24px] border-[3px] border-[color:var(--retro-ink)] bg-[color:var(--retro-paper)] p-5 shadow-[6px_6px_0_#111111]">
+                  <p className="retro-mono text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Selected portal</p>
                   <h2 className="retro-title mt-3 text-3xl">{portal} sign in</h2>
-                  <p className="mt-2 text-sm font-medium text-black/70">
+                  <p className="mt-2 text-sm font-medium text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">
                     {portal === 'student'
                       ? 'Students must enter email, roll number, and password.'
                       : portal === 'teacher'
@@ -146,7 +146,7 @@ export default function Login() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {portal !== 'parent' && (
                   <div>
-                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Email address</label>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Email address</label>
                     <input
                       type="email"
                       name="email"
@@ -161,7 +161,7 @@ export default function Login() {
 
                 {(portal === 'student' || portal === 'parent') && (
                   <div>
-                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">
                       {portal === 'student' ? 'Roll number' : 'Student roll number'}
                     </label>
                     <input
@@ -196,9 +196,9 @@ export default function Login() {
                 </button>
               </form>
 
-              <p className="mt-5 text-sm font-medium text-black/70">
+              <p className="mt-5 text-sm font-medium text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">
                 Teacher or student account needed?{' '}
-                <Link to="/register" className="font-black text-black underline">
+                <Link to="/register" className="font-black text-[color:var(--retro-ink)] underline">
                   Create one here
                 </Link>
               </p>
@@ -209,7 +209,7 @@ export default function Login() {
                 <div className="mb-5">
                   <p className="retro-chip bg-[#97e675]">Parent account setup</p>
                   <h2 className="retro-title mt-3 text-4xl">Create Parent Access</h2>
-                  <p className="mt-2 text-sm font-medium text-black/70">
+                  <p className="mt-2 text-sm font-medium text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">
                     This setup is shown only for parents. Student and teacher login will not display it.
                   </p>
                 </div>
@@ -222,7 +222,7 @@ export default function Login() {
 
                 <form onSubmit={handleCreateParent} className="space-y-4">
                   <div>
-                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Parent name</label>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Parent name</label>
                     <input
                       type="text"
                       name="name"
@@ -235,7 +235,7 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Student roll number</label>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Student roll number</label>
                     <input
                       type="text"
                       name="rollNo"
@@ -248,7 +248,7 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-black/70">Create parent password</label>
+                    <label className="retro-mono mb-2 block text-xs uppercase tracking-[0.18em] text-[color:color-mix(in_srgb,var(--retro-ink)_70%,transparent)]">Create parent password</label>
                     <input
                       type="password"
                       name="password"
