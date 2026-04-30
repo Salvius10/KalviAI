@@ -59,9 +59,8 @@ app.use("/api/parents",        require("./routes/parent.routes"));
 app.use("/api/ai",             require("./routes/ai.routes"));
 
 const learningPathRoutes = require("./routes/learningPath.route");
-const analyticsRoutes    = require("./routes/analytics.route");
 app.use("/api/learning-path", learningPathRoutes);
-app.use("/api/analytics",     analyticsRoutes);
+app.use("/api/analytics",     require("./routes/analytics.route"));
 
 // Global error handler
 app.use((err, req, res, next) => {

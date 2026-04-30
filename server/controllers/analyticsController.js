@@ -69,7 +69,7 @@ const getMyAnalytics = async (req, res) => {
 
     // Course summaries
     const courses = enrolledCourses.map((course) => {
-      const cp = progress?.courses.find((c) => c.courseId.toString() === course._id.toString());
+      const cp = (progress?.courses || []).find((c) => c.courseId.toString() === course._id.toString());
       return {
         courseId:              course._id,
         courseTitle:           course.title,
@@ -88,7 +88,8 @@ const getMyAnalytics = async (req, res) => {
       ? Math.round(submissions.reduce((s, sub) => s + sub.percentage, 0) / submissions.length)
       : 0;
 
-<<<<<<< HEAD
+    const attendance = user?.attendance || { present: 0, absent: 0 };
+
     return res.status(200).json({
       success: true,
       data: {
@@ -98,18 +99,8 @@ const getMyAnalytics = async (req, res) => {
           totalTimeSpentSeconds:  progress?.overallStats?.totalTimeSpentSeconds || 0,
           streakDays:             progress?.overallStats?.streakDays || 0,
           totalAssessmentsTaken:  submissions.length,
-=======
-    const attendance = user?.attendance || { present: 0, absent: 0 };
-
-    res.status(200).json({
-      success: true,
-      data: {
-        overallStats: {
-          ...(progress?.overallStats?.toObject?.() || progress?.overallStats || {}),
-          totalAssessmentsTaken: submissions.length,
-          quizzesTaken:          quizSubs.length,
-          assignmentsSubmitted:  pdfSubs.length,
->>>>>>> 004e88c (ai feature)
+          quizzesTaken:           quizSubs.length,
+          assignmentsSubmitted:   pdfSubs.length,
           avgAssessmentScore,
           avgQuizScore,
           attendance,
@@ -133,13 +124,9 @@ const getAIInsight = async (req, res) => {
     const [user, progress, submissions, enrolledCourses] = await Promise.all([
       User.findById(userId).select("attendance name"),
       StudentProgress.findOne({ userId }),
-<<<<<<< HEAD
-      Submission.find({ student: userId }).populate("assessment", "topic").select("percentage assessment"),
-=======
       Submission.find({ student: userId })
         .populate("assessment", "topic title assessmentType dueDate")
         .select("percentage submittedAt assessment submissionType totalScore maxScore"),
->>>>>>> 004e88c (ai feature)
       Course.find({ students: userId, isPublished: true }).select("title"),
     ]);
 
@@ -176,7 +163,7 @@ const getAIInsight = async (req, res) => {
       .join("\n  ");
 
     const courseLines = enrolledCourses.map((c) => {
-      const cp = progress?.courses.find((p) => p.courseId.toString() === c._id.toString());
+      const cp = (progress?.courses || []).find((p) => p.courseId.toString() === c._id.toString());
       return `"${c.title}" — ${cp?.completionPercent || 0}% done`;
     }).join("\n  ");
 

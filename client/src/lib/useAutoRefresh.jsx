@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 export function useAutoRefresh(fetchFn, intervalMs = 30000) {

@@ -8,33 +8,17 @@ const Submission      = require("../models/Submission.model");
 const groq  = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const MODEL = "llama-3.3-70b-versatile";
 
-<<<<<<< HEAD
-// ─── Prompt builder ───────────────────────────────────────────────────────────
-function buildPrompt({ goal, courses, submissionSummary, weakTopics, strongTopics }) {
-  const courseLines = courses.length > 0
-    ? courses.map((c) => `"${c.title}" — ${c.completionPercent}% complete`)
-    : ["Not enrolled in any courses yet"];
-=======
 // ─── Build the prompt sent to Groq ───────────────────────────────────────────
 function buildPrompt({ goal, courses, submissionSummary, weakTopics, strongTopics, today }) {
   const courseLines = courses.map(
     (c) => `"${c.title}" — ${c.completionPercent}% complete`
   );
->>>>>>> 004e88c (ai feature)
 
   const materialLines = courses.flatMap((c) =>
     c.pendingMaterials.map((m) => `- [${m.type}] "${m.title}" in "${c.title}" (id: ${m._id})`)
   );
 
   const assessmentLines = courses.flatMap((c) =>
-<<<<<<< HEAD
-    c.pendingAssessments.map((a) => `- [assessment] "${a.title}" topic:"${a.topic || "general"}" difficulty:${a.difficulty} (id: ${a._id})`)
-  );
-
-  const scoreLines = submissionSummary.length > 0
-    ? submissionSummary.map((s) => `"${s.topic}": avg ${s.avgPercent}% (${s.count} attempt/s)`)
-    : ["No assessments taken yet"];
-=======
     c.pendingAssessments.map((a) => {
       let dueLine = "no due date";
       let urgency = "";
@@ -58,7 +42,6 @@ function buildPrompt({ goal, courses, submissionSummary, weakTopics, strongTopic
           return `"${s.topic}": avg ${s.avgPercent}%${flag} (${s.count} attempt/s)`;
         })
       : ["No quiz results yet — student is new"];
->>>>>>> 004e88c (ai feature)
 
   return `You are an expert learning coach for KalviAI, a school LMS. Generate a personalized weekly learning path for this student based on their quiz performance, assignment due dates, and course progress.
 
@@ -82,12 +65,6 @@ ${assessmentLines.length > 0 ? assessmentLines.join("\n") : "None"}
 
 RULES (follow strictly):
 1. Generate exactly 6 to 8 steps total
-<<<<<<< HEAD
-2. Put weak topic items FIRST with priority "high"
-3. Mix materials and assessments — don't recommend only one type
-4. Each "reason" must be exactly one sentence explaining why this helps this student
-5. Use realistic estimatedMinutes: pdf=20, video=15, assessment=30
-=======
 2. OVERDUE and DUE TODAY assessments must appear first with priority "high"
 3. Assessments due within 2 days must be priority "high"
 4. Assessments due within 7 days must be priority "medium"
@@ -95,7 +72,6 @@ RULES (follow strictly):
 6. Mix material and assessment steps — do not recommend only one type
 7. Each "reason" must be one sentence explaining WHY this step helps this specific student right now (mention the due date or weak topic explicitly)
 8. Use estimatedMinutes: pdf=20, video=15, assessment=match its duration field
->>>>>>> 004e88c (ai feature)
 
 Reply ONLY with valid JSON, no markdown, no explanation, no code fences:
 {
@@ -131,21 +107,13 @@ async function buildUserContext(userId, goal) {
         .slice(0, 4)
         .map((m) => ({ _id: m._id, title: m.title, type: m.type }));
 
-<<<<<<< HEAD
-      const assessments        = await Assessment.find({ course: course._id, isPublished: true }).select("_id title topic difficulty duration");
-      const submissions        = await Submission.find({ student: userId, assessment: { $in: assessments.map((a) => a._id) } }).select("assessment");
-      const submittedIds       = new Set(submissions.map((s) => s.assessment.toString()));
-=======
-      // Get assessments for this course the student hasn't submitted yet
       const assessments   = await Assessment.find({ course: course._id, isPublished: true }).select("_id title topic difficulty duration dueDate");
       const submissions   = await Submission.find({ student: userId, assessment: { $in: assessments.map((a) => a._id) } }).select("assessment");
       const submittedIds  = new Set(submissions.map((s) => s.assessment.toString()));
-      const now           = new Date();
->>>>>>> 004e88c (ai feature)
+
       const pendingAssessments = assessments
         .filter((a) => !submittedIds.has(a._id.toString()))
         .sort((a, b) => {
-          // Sort: overdue/upcoming due dates first, then no-due-date last
           const da = a.dueDate ? new Date(a.dueDate) : new Date(8640000000000000);
           const db = b.dueDate ? new Date(b.dueDate) : new Date(8640000000000000);
           return da - db;
@@ -181,12 +149,8 @@ async function buildUserContext(userId, goal) {
   }));
 
   return {
-<<<<<<< HEAD
-    goal:              goal || "Complete enrolled courses effectively",
-=======
     goal:  goal || "Complete enrolled courses effectively",
     today: new Date(),
->>>>>>> 004e88c (ai feature)
     courses,
     submissionSummary,
     weakTopics:   submissionSummary.filter((s) => s.avgPercent < 60).map((s) => s.topic),
@@ -200,15 +164,10 @@ const getLearningPath = async (req, res) => {
     const userId = req.user.id;
     let path = await LearningPath.findOne({ userId });
 
-    // Return cached path if still fresh
     if (path && !path.isStale && path.nextRefreshAt > new Date()) {
       return res.status(200).json({ success: true, data: path, cached: true });
     }
 
-<<<<<<< HEAD
-    // Build context and call Groq
-=======
->>>>>>> 004e88c (ai feature)
     const context    = await buildUserContext(userId, path?.goal);
     const prompt     = buildPrompt(context);
     const completion = await groq.chat.completions.create({
@@ -217,7 +176,6 @@ const getLearningPath = async (req, res) => {
       messages:   [{ role: "user", content: prompt }],
     });
 
-    // Strip possible markdown fences
     const raw = completion.choices[0].message.content.replace(/```json|```/g, "").trim();
     let aiData;
     try {
@@ -255,7 +213,7 @@ const getLearningPath = async (req, res) => {
           isStale:               false,
         },
       },
-      { upsert: true, returnDocument: "after" }
+      { upsert: true, new: true }
     );
 
     return res.status(200).json({ success: true, data: path, cached: false });
@@ -294,13 +252,8 @@ const updateGoal = async (req, res) => {
 
     const path = await LearningPath.findOneAndUpdate(
       { userId: req.user.id },
-<<<<<<< HEAD
       { $set: { goal, isStale: true } },
-      { upsert: true, returnDocument: "after" }
-=======
-      { goal, isStale: true },
       { upsert: true, new: true }
->>>>>>> 004e88c (ai feature)
     );
     return res.status(200).json({ success: true, data: path });
   } catch (error) {
@@ -310,7 +263,6 @@ const updateGoal = async (req, res) => {
 
 // ─── POST /api/learning-path/regenerate ──────────────────────────────────────
 const regeneratePath = async (req, res) => {
-<<<<<<< HEAD
   try {
     await LearningPath.findOneAndUpdate(
       { userId: req.user.id },
@@ -320,13 +272,6 @@ const regeneratePath = async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
-=======
-  await LearningPath.findOneAndUpdate(
-    { userId: req.user.id },
-    { isStale: true, nextRefreshAt: new Date() }
-  );
-  return getLearningPath(req, res);
->>>>>>> 004e88c (ai feature)
 };
 
 // ─── POST /api/learning-path/track ───────────────────────────────────────────

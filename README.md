@@ -84,9 +84,12 @@ KalviAI/
 ## Installation & Running
 
 ### Prerequisites
-- Node.js 18+
-- A [MongoDB Atlas](https://cloud.mongodb.com) account (free tier works)
-- A [Groq](https://console.groq.com) API key (free)
+
+- **Node.js 18+** — [Download](https://nodejs.org)
+- **MongoDB Atlas account** — [Free tier](https://cloud.mongodb.com)
+- **Groq API key** — [Free at console.groq.com](https://console.groq.com/keys)
+
+---
 
 ### 1. Clone the repository
 
@@ -95,23 +98,23 @@ git clone https://github.com/Salvius10/KalviAI.git
 cd KalviAI
 ```
 
-### 2. Install server dependencies
+---
+
+### 2. Install dependencies
 
 ```bash
-cd server
-npm install
+# Server dependencies
+cd server && npm install
+
+# Client dependencies
+cd ../client && npm install
 ```
 
-### 3. Install client dependencies
+---
 
-```bash
-cd ../client
-npm install
-```
+### 3. Configure environment variables
 
-### 4. Create the server environment file
-
-Create a file at `server/.env`:
+**Server** — create `server/.env`:
 
 ```env
 PORT=3000
@@ -123,11 +126,19 @@ GROQ_MODEL=llama-3.3-70b-versatile
 CLIENT_ORIGINS=http://localhost:5173,http://localhost:5174
 ```
 
-> Get your `MONGO_URI` from MongoDB Atlas → Connect → Drivers.
-> Get your `GROQ_API_KEY` from https://console.groq.com/keys.
-> Make sure to whitelist your IP in Atlas → Network Access (or use `0.0.0.0/0` for dev).
+**Client** — create `client/.env`:
 
-### 5. Run the servers
+```env
+VITE_API_BASE_URL=http://localhost:3000/api
+```
+
+> **MongoDB:** Atlas → Connect → Drivers → copy the connection string. Whitelist your IP in Atlas → Network Access (or use `0.0.0.0/0` for development).
+>
+> **Groq:** Get your key at https://console.groq.com/keys — the free tier supports Llama 3.3 70B.
+
+---
+
+### 4. Run the servers
 
 Open **two terminals**:
 
@@ -135,62 +146,94 @@ Open **two terminals**:
 ```bash
 cd server
 npm run dev
-# Runs on http://localhost:3000
+# Server running at http://localhost:3000
 ```
 
 **Terminal 2 — Frontend:**
 ```bash
 cd client
 npm run dev
-# Runs on http://localhost:5173
+# App running at http://localhost:5173
 ```
 
-Then open http://localhost:5173 in your browser.
+Open **http://localhost:5173** in your browser.
+
+---
+
+### 5. Register your first account
+
+Go to `/register` and choose a role:
+
+- **Teacher** — can create courses and generate AI assessments
+- **Student** — can enroll, use the AI tutor, and get a personalized learning path
+- **Parent** — register after a student account exists; link by student email
 
 ---
 
 ## Environment Variables
 
-| Variable         | Description                                      | Required |
-|------------------|--------------------------------------------------|----------|
-| `PORT`           | Express server port (default: 3000)              | Yes      |
-| `MONGO_URI`      | MongoDB Atlas connection string                  | Yes      |
-| `JWT_SECRET`     | Secret key for signing JWT tokens                | Yes      |
-| `JWT_EXPIRES_IN` | JWT expiry duration (e.g. `7d`)                  | Yes      |
-| `GROQ_API_KEY`   | Groq API key for Llama 3.3 70B                   | Yes      |
-| `GROQ_MODEL`     | Groq model name (default: llama-3.3-70b-versatile) | Yes    |
-| `CLIENT_ORIGINS` | Comma-separated list of allowed frontend origins | Yes      |
+| Variable         | Description                                        | Required |
+|------------------|----------------------------------------------------|----------|
+| `PORT`           | Express server port (default: 3000)                | Yes      |
+| `MONGO_URI`      | MongoDB Atlas connection string                    | Yes      |
+| `JWT_SECRET`     | Secret key for signing JWT tokens                  | Yes      |
+| `JWT_EXPIRES_IN` | JWT expiry duration (e.g. `7d`)                    | Yes      |
+| `GROQ_API_KEY`   | Groq API key for Llama 3.3 70B                     | Yes      |
+| `GROQ_MODEL`     | Groq model name (default: `llama-3.3-70b-versatile`) | Yes    |
+| `CLIENT_ORIGINS` | Comma-separated list of allowed frontend origins   | Yes      |
+| `VITE_API_BASE_URL` | Backend API URL used by the React client        | Yes      |
+
+---
+
+## Available Scripts
+
+### Server (`cd server`)
+
+| Command             | Description                          |
+|---------------------|--------------------------------------|
+| `npm run dev`       | Start with nodemon (auto-reload)     |
+| `npm start`         | Start without nodemon                |
+| `npm run reset-db`  | Wipe and reseed the database         |
+
+### Client (`cd client`)
+
+| Command             | Description                          |
+|---------------------|--------------------------------------|
+| `npm run dev`       | Start Vite dev server on :5173       |
+| `npm run build`     | Production build to `dist/`          |
+| `npm run preview`   | Preview production build locally     |
+| `npm run lint`      | Run ESLint                           |
 
 ---
 
 ## API Routes
 
-| Method | Route                                  | Access  | Description                        |
-|--------|----------------------------------------|---------|------------------------------------|
-| POST   | `/api/auth/register`                   | Public  | Register teacher or student        |
-| POST   | `/api/auth/login`                      | Public  | Login and receive JWT              |
-| GET    | `/api/auth/me`                         | Auth    | Get current user                   |
-| POST   | `/api/auth/register-parent`            | Auth    | Register parent linked to student  |
-| GET    | `/api/courses`                         | Auth    | List courses                       |
-| POST   | `/api/courses`                         | Teacher | Create course                      |
-| GET    | `/api/assessments`                     | Auth    | List assessments                   |
-| POST   | `/api/submissions`                     | Student | Submit assessment                  |
-| GET    | `/api/performance`                     | Auth    | Student performance data           |
-| POST   | `/api/ai/tutor`                        | Student | Socratic AI tutor message          |
-| GET    | `/api/ai/tutor/history`                | Student | Chat history                       |
-| DELETE | `/api/ai/tutor/clear`                  | Student | Clear chat history                 |
-| POST   | `/api/ai/generate-assessment`          | Teacher | AI-generate assessment from doc    |
-| POST   | `/api/ai/flashcards`                   | Student | AI-generate flashcards             |
-| POST   | `/api/ai/detect-plagiarism`            | Teacher | Plagiarism check on submission     |
-| GET    | `/api/learning-path`                   | Student | Get or generate personalized path  |
-| POST   | `/api/learning-path/regenerate`        | Student | Force regenerate learning path     |
-| PATCH  | `/api/learning-path/goal`              | Student | Update learning goal               |
-| PATCH  | `/api/learning-path/step/:id/complete` | Student | Mark a path step complete          |
-| GET    | `/api/analytics/me`                    | Student | Progress analytics                 |
-| GET    | `/api/analytics/ai-insight`            | Student | AI-generated performance insight   |
-| GET    | `/api/study-sessions`                  | Student | List study sessions                |
-| POST   | `/api/study-sessions`                  | Student | Log a study session                |
-| GET    | `/api/parent`                          | Parent  | Child's data                       |
+| Method | Route                                    | Access  | Description                        |
+|--------|------------------------------------------|---------|------------------------------------|
+| POST   | `/api/auth/register`                     | Public  | Register teacher or student        |
+| POST   | `/api/auth/login`                        | Public  | Login and receive JWT              |
+| GET    | `/api/auth/me`                           | Auth    | Get current user                   |
+| POST   | `/api/auth/register-parent`              | Auth    | Register parent linked to student  |
+| GET    | `/api/courses`                           | Auth    | List courses                       |
+| POST   | `/api/courses`                           | Teacher | Create course                      |
+| GET    | `/api/assessments`                       | Auth    | List assessments                   |
+| POST   | `/api/submissions`                       | Student | Submit assessment                  |
+| GET    | `/api/performance`                       | Auth    | Student performance data           |
+| POST   | `/api/ai/tutor`                          | Student | Socratic AI tutor message          |
+| GET    | `/api/ai/tutor/history`                  | Student | Chat history                       |
+| DELETE | `/api/ai/tutor/clear`                    | Student | Clear chat history                 |
+| POST   | `/api/ai/generate-assessment`            | Teacher | AI-generate assessment from doc    |
+| POST   | `/api/ai/flashcards`                     | Student | AI-generate flashcards             |
+| POST   | `/api/ai/detect-plagiarism`              | Teacher | Plagiarism check on submission     |
+| GET    | `/api/learning-path`                     | Student | Get or generate personalized path  |
+| POST   | `/api/learning-path/regenerate`          | Student | Force regenerate learning path     |
+| PATCH  | `/api/learning-path/goal`                | Student | Update learning goal               |
+| PATCH  | `/api/learning-path/step/:id/complete`   | Student | Mark a path step complete          |
+| GET    | `/api/analytics/me`                      | Student | Progress analytics                 |
+| GET    | `/api/analytics/ai-insight`              | Student | AI-generated performance insight   |
+| GET    | `/api/study-sessions`                    | Student | List study sessions                |
+| POST   | `/api/study-sessions`                    | Student | Log a study session                |
+| GET    | `/api/parent`                            | Parent  | Child's data                       |
 
 ---
 
@@ -210,27 +253,6 @@ Then open http://localhost:5173 in your browser.
 | Progress Analytics + AI    |         | Yes     |        |
 | Study Session Tracker      |         | Yes     |        |
 | View Child's Progress      |         |         | Yes    |
-
----
-
-## Available Scripts
-
-### Server (`cd server`)
-
-| Command           | Description                        |
-|-------------------|------------------------------------|
-| `npm run dev`     | Start with nodemon (auto-reload)   |
-| `npm start`       | Start without nodemon              |
-| `npm run reset-db`| Wipe and reseed the database       |
-
-### Client (`cd client`)
-
-| Command           | Description                        |
-|-------------------|------------------------------------|
-| `npm run dev`     | Start Vite dev server              |
-| `npm run build`   | Production build to `dist/`        |
-| `npm run preview` | Preview production build locally   |
-| `npm run lint`    | Run ESLint                         |
 
 ---
 

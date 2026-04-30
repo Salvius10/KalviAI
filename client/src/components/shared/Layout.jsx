@@ -21,8 +21,8 @@ const studentLinks = [
   { path: '/student/ai-tutor',       label: 'AI Tutor',      icon: '🤖' },
   { path: '/student/flashcards',     label: 'Flashcards',    icon: '🃏' },
   { path: '/student/study-sessions', label: 'Study Tracker', icon: '⏱️' },
-  { path: '/student/learning-path',  label: 'Learning Path', icon: '🎯' },  
-  { path: '/student/analytics',      label: 'Analytics',     icon: '📊' },  
+  { path: '/student/learning-path',  label: 'Learning Path', icon: '🎯' },
+  { path: '/student/analytics',      label: 'Analytics',     icon: '📈' },
 ]
 
 const parentLinks = [
